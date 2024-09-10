@@ -13,7 +13,7 @@ def optimize_alloc(p_bid, bids, Q, cap):
     x = cp.Variable(n, nonneg=True)
     prob = cp.Problem(cp.Minimize(0.5 * cp.quad_form(x[:n-1], C) + D.T @ x[:n-1] + p_bid * x[-1]),
                       [A @ x == Q, I @ x <= cap])
-    prob.solve()
+    prob.solve(solver=cp.GUROBI)
     allocs = x.value
     social_welfare = prob.value
     # To fix very small values
@@ -43,9 +43,10 @@ def aftermarket_evaluation(bids, Q, cap, t, bidder):
     payoffs_each_action = []
     for _ in range(bidder.aftermarket_exploration):
         # action = (price, quantity), random as placeholder
-        action_tmp = (np.random.randint(10, 30), np.random.randint(10, cap[-1]))
+        action_tmp = (np.random.randint(0, 30), np.random.randint(0, cap[-1]))
         tmp_bids = bids.copy()
-        x_tmp, marginal_price_tmp, payments_tmp, sw = optimize_alloc(action_tmp[0], tmp_bids, Q, cap[:-1] + [action_tmp[1]])
+        x_tmp, marginal_price_tmp, payments_tmp, sw = optimize_alloc(action_tmp[0], tmp_bids, Q, cap[:-1]
+                                                                     + [action_tmp[1]])
         payoff_tmp = payments_tmp[-1] - (0.5 * bidder.costs[0] * x_tmp[-1] + bidder.costs[1]) * x_tmp[-1]
         payoffs_each_action.append(payoff_tmp)
         state_new = [x_tmp[-1], marginal_price_tmp, Q]

@@ -38,12 +38,14 @@ def bid_intra_trustfull(player, df_bidders, t_l, t_int):
 
     lambda_prod_prime = a * x_prod + b
 
-    if bid_flag.value == 1:
-        print(f"New bid (price, volume):                        {lambda_hat_int, x_sell_int.value}")
-    else:
-        print(f"New ask (price, volume):                        {lambda_hat_int, x_buy_int.value}")
-    print(f"Production cost t+1 (marginal costs, volume):   {lambda_prod_prime.value, x_prod.value}")
-    print(f"Imbalance (volume):                             {x_imb.value}")
+#    print(f"Player:                                         {player}")
+#    print(f"t_int:                                          {t_int}")
+#    if bid_flag.value == 1:
+#        print(f"New bid (price, volume):                        {lambda_hat_int, x_sell_int.value}")
+#    else:
+#        print(f"New ask (price, volume):                        {lambda_hat_int, x_buy_int.value}")
+#    print(f"Production cost t+1 (marginal costs, volume):   {lambda_prod_prime.value, x_prod.value}")
+#    print(f"Imbalance (volume):                             {x_imb.value}")
 
     if bid_flag.value == 1:
         new_post = (lambda_hat_int, x_sell_int.value, bid_flag.value, t_int)  # (float, float, int)
@@ -52,13 +54,14 @@ def bid_intra_trustfull(player, df_bidders, t_l, t_int):
 
     return x_prod.value, x_imb.value, new_post
 
-def bid_intra_strategic(action, df_bidders,t_int):
+def bid_intra_strategic(action, player, df_bidders,t_int):
     bid_flag = 1 if action[1] > 0 else 0
     new_post = (action[0], abs(action[1]), bid_flag, t_int)
 
-    x_prod = min(df_bidders['x_da'] + df_bidders['x_sold'] - df_bidders['x_bought'], df_bidders['x_cap'])
+    x_prod = min(df_bidders.at[player, 'x_da'] + df_bidders.at[player, 'x_sold'] - df_bidders.at[player, 'x_bought'],
+                 df_bidders.at[player, 'x_cap'])
 
-    x_imb = df_bidders['x_bought'] + x_prod - df_bidders['x_da'] - df_bidders['x_sold']
+    x_imb = df_bidders.at[player, 'x_bought'] + x_prod - df_bidders.at[player, 'x_da'] - df_bidders.at[player, 'x_sold']
 
     return x_prod, x_imb, new_post
 
@@ -68,20 +71,20 @@ def match_maker(df_order_book):
 
     if len_bids > 0:
         top_bid = df_order_book[df_order_book["bid_flag"] == 1].iloc[-1]
-        print(f"Top bid:                         \n{top_bid}")
-    else:
-        print("No bids available")
+#        print(f"Top bid:                         \n{top_bid}")
+#    else:
+#        print("No bids available")
 
     if len_asks > 0:
         top_ask = df_order_book[df_order_book["bid_flag"] == 0].iloc[0]
-        print(f"Top ask:                         \n{top_ask}")
-    else:
-        print("No asks available")
+#        print(f"Top ask:                         \n{top_ask}")
+#    else:
+#        print("No asks available")
 
     if len_bids > 0 and len_asks > 0 and (top_bid["price"] <= top_ask["price"]):
-        print("Match found")
+#        print("Match found")
         volume = min(top_bid["volume"], top_ask["volume"])
-        print(top_ask.name, top_bid.name)
+#        print(top_ask.name, top_bid.name)
         df_order_book.loc[top_bid.name, 'volume'] -= volume
         df_order_book.loc[top_ask.name, 'volume'] -= volume
 
@@ -97,12 +100,13 @@ def match_maker(df_order_book):
 
         return price, volume, buyer, seller, df_order_book
 
-    print(df_order_book)
+#    print(df_order_book)
 
     return None, None, None, None, df_order_book
 
 def update_books(df_order_book, df_bidders, bidder, new_post, x_prod, x_imb):
     # remove old bids/asks from order book
+    df_order_book = df_order_book.copy()
     df_order_book = df_order_book[df_order_book["participant"] != bidder]
 
     # Unpack new_post tuple
@@ -119,7 +123,7 @@ def update_books(df_order_book, df_bidders, bidder, new_post, x_prod, x_imb):
         if price is None:
             break
         else:
-            print(f"Matched price: {price}, volume: {volume}, buyer: {buyer}, seller: {seller}")
+#            print(f"Matched price: {price}, volume: {volume}, buyer: {buyer}, seller: {seller}")
             df_bidders.at[buyer, 'x_bought'] += volume
             df_bidders.at[seller, 'x_sold'] += volume
             df_bidders.at[buyer, 'revenue'] -= price * volume
@@ -138,6 +142,6 @@ def update_books(df_order_book, df_bidders, bidder, new_post, x_prod, x_imb):
     # Return the updated DataFrames
     return df_order_book, df_bidders
 
-def calc_payoff_int_strategic(bidder, df_bidders, rev_before_match):
-    return df_bidders.at[-1, 'revenue'] - rev_before_match - (0.5 * bidder.costs[0] * df_bidders.at[-1] ** 2
-                                                              + bidder.costs[1] * df_bidders.at[-1])
+def calc_payoff_int_strategic(idx, bidder, df_bidders, rev_before_match):
+    return df_bidders.at[idx, 'revenue'] - rev_before_match - (0.5 * bidder.costs[0] * df_bidders.at[idx, 'x_prod'] ** 2
+                                                              + bidder.costs[1] * df_bidders.at[idx, 'x_prod'])
