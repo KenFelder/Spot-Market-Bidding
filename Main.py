@@ -31,7 +31,7 @@ def DDPG_game(env, training_steps):
 def PPO_game(env, training_steps, train):
     # Parallel environments
     #vec_env = make_vec_env(env, n_envs=4)
-    vec_env = make_vec_env(lambda: SpotEnv(t_max=100, n=5, q=1448.4, cap_mean=700), n_envs=4)
+    vec_env = make_vec_env(lambda: SpotEnv(t_max=100, n=5, q=1448.4, cap_mean=700), n_envs=1)
 
     if train:
         model = PPO("MultiInputPolicy", vec_env, verbose=1)
@@ -41,13 +41,16 @@ def PPO_game(env, training_steps, train):
 
         del model  # remove to demonstrate saving and loading
 
-    model = PPO.load("ppo_spot_model")
+    else:
+        model = PPO.load("ppo_spot_model")
 
     obs = vec_env.reset()
     while True:
         action, _states = model.predict(obs)
         obs, rewards, dones, info = vec_env.step(action)
-        print(dones)
+        if dones:
+            print(f'reward: {rewards}')
+            break
 
 # TODO: Check if "while True" loop is like in docs
 def TD3_game(env, training_steps):
