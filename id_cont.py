@@ -1,7 +1,7 @@
 import cvxpy as cp
 
-# TODO: Check Bid/Ask integrity
-def bid_intra_trustfull(player, df_bidders, t_l, t_int):
+
+def bid_intra_trustful(player, df_bidders, t_l, t_int):
     a = df_bidders.at[player, 'true_costs'][0]
     b = df_bidders.at[player, 'true_costs'][1]
 
@@ -29,8 +29,8 @@ def bid_intra_trustfull(player, df_bidders, t_l, t_int):
     constraints = [
         x_prod + x_bought == x_da + x_sold + x_imb,
         x_prod <= x_cap,
-        x_sell_int <= 1e5 * bid_flag,
-        x_buy_int <= 1e5 * (1 - bid_flag),
+        x_sell_int <= 1e5 * (1 - bid_flag),
+        x_buy_int <= 1e5 * bid_flag,
     ]
 
     problem = cp.Problem(objective, constraints)
@@ -48,7 +48,7 @@ def bid_intra_trustfull(player, df_bidders, t_l, t_int):
 #    print(f"Production cost t+1 (marginal costs, volume):   {lambda_prod_prime.value, x_prod.value}")
 #    print(f"Imbalance (volume):                             {x_imb.value}")
 
-    if bid_flag.value == 1:
+    if bid_flag.value == 0:
         new_post = (lambda_hat_int, x_sell_int.value, bid_flag.value, t_int)  # (float, float, int)
     else:
         new_post = (lambda_hat_int, x_buy_int.value, bid_flag.value, t_int)  # (float, float, int)
@@ -56,7 +56,7 @@ def bid_intra_trustfull(player, df_bidders, t_l, t_int):
     return x_prod.value, x_imb.value, new_post
 
 def bid_intra_strategic(action, player, df_bidders,t_int):
-    bid_flag = 1 if action[1] > 0 else 0
+    bid_flag = 1 if action[1] < 0 else 0
     new_post = (action[0], abs(action[1]), bid_flag, t_int)
 
     x_prod = min(df_bidders.at[player, 'x_da'] + df_bidders.at[player, 'x_sold'] - df_bidders.at[player, 'x_bought'],
@@ -71,18 +71,18 @@ def match_maker(df_order_book):
     len_asks = len(df_order_book[df_order_book["bid_flag"] == 0])
 
     if len_bids > 0:
-        top_bid = df_order_book[df_order_book["bid_flag"] == 1].iloc[-1]
+        top_bid = df_order_book[df_order_book["bid_flag"] == 1].iloc[0]
 #        print(f"Top bid:                         \n{top_bid}")
 #    else:
 #        print("No bids available")
 
     if len_asks > 0:
-        top_ask = df_order_book[df_order_book["bid_flag"] == 0].iloc[0]
+        top_ask = df_order_book[df_order_book["bid_flag"] == 0].iloc[-1]
 #        print(f"Top ask:                         \n{top_ask}")
 #    else:
 #        print("No asks available")
 
-    if len_bids > 0 and len_asks > 0 and (top_bid["price"] <= top_ask["price"]):
+    if len_bids > 0 and len_asks > 0 and (top_bid["price"] >= top_ask["price"]):
 #        print("Match found")
         volume = min(top_bid["volume"], top_ask["volume"])
 #        print(top_ask.name, top_bid.name)
@@ -91,8 +91,8 @@ def match_maker(df_order_book):
 
         price = top_bid["price"] if top_bid["timestamp"] < top_ask["timestamp"] else top_ask["price"]
 
-        buyer = top_ask["participant"]
-        seller = top_bid["participant"]
+        buyer = top_bid["participant"]
+        seller = top_ask["participant"]
 
         if top_bid["volume"] <= 1e-1:
             df_order_book = df_order_book.drop(top_bid.name)

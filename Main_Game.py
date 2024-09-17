@@ -2,7 +2,7 @@ import numpy as np
 from tqdm import tqdm
 import pickle
 from DA_Auction import optimize_alloc, calc_payoff_DA, aftermarket_evaluation
-from id_cont import bid_intra_trustfull, update_books
+from id_cont import bid_intra_trustful, update_books
 from bidder_classes import D4PG_bidder
 import pandas as pd
 
@@ -142,7 +142,7 @@ def trustful_vs_bidder(bidder, num_runs, T, T_ID, file_name):
                 # Placeholder: set random lambda_hat_int for bidder
                 df_bidders.at[player, 'lambda_hat_int'] = np.random.randint(15, 30)
                 df_bidders.at[player, 'x_cap'] = cap[player]
-                x_prod, x_imb, new_post = bid_intra_trustfull(player, df_bidders, T_ID, t_int)
+                x_prod, x_imb, new_post = bid_intra_trustful(player, df_bidders, T_ID, t_int)
 
                 df_order_book, df_bidders = update_books(df_order_book, df_bidders, player, new_post, x_prod, x_imb)
 

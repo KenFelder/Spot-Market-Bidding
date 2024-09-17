@@ -122,8 +122,8 @@ if __name__ == '__main__':
     env = SpotEnv(t_max=100, n=5, q=1448.4, cap_mean=700)
     callback = TensorboardCallback()
     #env = FlattenObservation(env)
-    #PPO_game(env, callback)  # TODO: Not learning, maybe missing state? Bad selection of obs?
-    #                                 Too large obs spaces? Flatten obs? Imbalance penalty too harsh?
-    SAC_game(env, callback)  # TODO: Same as PPO
+    PPO_game(env, callback)  # TODO: Not learning, maybe missing state? Bad selection of obs?
+    #                                Too large obs spaces? Flatten obs? Imbalance penalty too harsh?
+    #SAC_game(env, callback)  # TODO: Same as PPO
     #TD3_game(env, callback)  # TODO: Same as SAC
     #DDPG_game(env, callback)  # TODO: Test
