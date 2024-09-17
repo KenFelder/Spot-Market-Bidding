@@ -7,7 +7,7 @@ class Bidder:
     def __init__(self, has_seed=False):
         self.costs = (0.01, 11)
         self.sd_cap_start = 0.3
-        self.aftermarket_exploration = 10
+        self.aftermarket_exploration = 200
 
         # logs
         self.history_payoff_profile = []

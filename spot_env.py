@@ -1,18 +1,18 @@
 import numpy as np
 import gymnasium as gym
 from gymnasium import spaces
-from tqdm import tqdm
+import pandas as pd
 import pickle
 from DA_Auction import optimize_alloc, calc_payoff_DA, aftermarket_evaluation
-from id_cont import bid_intra_trustfull, bid_intra_strategic, calc_payoff_int_strategic,update_books
+from id_cont import bid_intra_trustfull, bid_intra_strategic, calc_payoff_int_strategic, update_books
 from bidder_classes import Bidder
-import pandas as pd
 
 
+# TODO: Check Bid/Ask integrity
 class SpotEnv(gym.Env):
     def __init__(self, t_max=200, n=5, q=1448.4, cap_mean=700):
         #self._state = 0
-        self._max_steps = t_max
+
         self._current_step = 0
         self.t_int = 0
 
@@ -21,13 +21,15 @@ class SpotEnv(gym.Env):
         self.bidder_costs = [self.bidder.costs]  # Needs to be tuple
         self.other_costs = [(0.07, 9), (0.02, 10), (0.03, 12), (0.008, 12)]
 
+        self._max_steps = t_max + self.bidder.aftermarket_exploration
+
         self.Q = q
         self.cap_mean = cap_mean
-        self.sd_cap = [np.linspace(0.1, 0, self._max_steps),
-                       np.linspace(0.15, 0, self._max_steps),
-                       np.linspace(0.2, 0, self._max_steps),
-                       np.linspace(0.25, 0, self._max_steps),
-                       np.linspace(self.bidder.sd_cap_start, 0, self._max_steps)]  # Needs to be a float
+        self.sd_cap = [np.linspace(0.1, 0, self._max_steps, dtype=np.float64),
+                       np.linspace(0.15, 0, self._max_steps, dtype=np.float64),
+                       np.linspace(0.2, 0, self._max_steps, dtype=np.float64),
+                       np.linspace(0.25, 0, self._max_steps, dtype=np.float64),
+                       np.linspace(self.bidder.sd_cap_start, 0, self._max_steps, dtype=np.float64)]
 
         self.bidder_DA_cap = [np.random.normal(loc=self.cap_mean, scale=self.sd_cap[-1][self.t_int] * self.cap_mean)]
 
@@ -66,11 +68,11 @@ class SpotEnv(gym.Env):
             'x_bought': 'float64',
             'x_sold': 'float64',
             'x_da': 'float64',
-            'x_imb': 'float32',
+            'x_imb': 'float64',
             'x_prod': 'float64',
-            'x_cap': 'float32',
+            'x_cap': 'float64',
             'lambda_hat_int': 'float64',
-            'true_costs': 'object',  # Ensure true_costs is treated as object
+            'true_costs': 'object',  # Tuple
             'revenue': 'float64',
         })
 
@@ -78,27 +80,28 @@ class SpotEnv(gym.Env):
 
         self.observation_space = spaces.Dict({
             # Private information
-            'x_cap': spaces.Box(low=0, high=np.inf, dtype=np.float32),
-            'x_imb': spaces.Box(low=-np.inf, high=np.inf, dtype=np.float32),
+            'x_cap': spaces.Box(low=0, high=np.inf, dtype=np.float64),
+            'x_imb': spaces.Box(low=-np.inf, high=np.inf, dtype=np.float64),
             'x_prod': spaces.Box(low=0, high=np.inf, dtype=np.float64),
             'x_da': spaces.Box(low=0, high=np.inf, dtype=np.float64),
             'x_bought': spaces.Box(low=0, high=np.inf, dtype=np.float64),
             'x_sold': spaces.Box(low=0, high=np.inf, dtype=np.float64),
             'revenue': spaces.Box(low=-np.inf, high=np.inf, dtype=np.float64),
             # Public information
-            'Best bid (price, volume)': spaces.Box(low=np.array([-np.inf, 0]), high=np.array([np.inf, np.inf])),
-            'Best ask (price, volume)': spaces.Box(low=np.array([-np.inf, 0]), high=np.array([np.inf, np.inf])),
-            #'Last trade (price, volume)': spaces.Box(low=np.array([-np.inf, 0]), high=np.array([np.inf, np.inf])),
+            'Best bid (price, volume)': spaces.Box(low=np.array([-np.inf, 0]), high=np.array([np.inf, np.inf]), dtype=np.float64),
+            'Best ask (price, volume)': spaces.Box(low=np.array([-np.inf, 0]), high=np.array([np.inf, np.inf]), dtype=np.float64),
+            #'Last trade (price, volume)': spaces.Box(low=np.array([-np.inf, 0]), high=np.array([np.inf, np.inf]),
+            #                                         dtype=np.float64),
             #'Volume weighted average prices (bid, ask)': spaces.Box(low=np.array([-np.inf, -np.inf]),
-            #                                                         high=np.array([np.inf, np.inf])),
-            'Sum volume (bid, ask)': spaces.Box(low=np.array([0, 0]), high=np.array([np.inf, np.inf])),
-            'steps left': spaces.Box(low=0, high=self._max_steps),
+            #                                                         high=np.array([np.inf, np.inf]), dtype=np.float64),
+            'Sum volume (bid, ask)': spaces.Box(low=np.array([0, 0]), high=np.array([np.inf, np.inf]), dtype=np.float64),
+            'steps left': spaces.Box(low=0, high=self._max_steps, dtype=np.float64),
         })
 
         # TODO: negative prices possible? Fails at optimizing. Fix: Take max of 0 and price before feeding to
-        # optimizer
+        #       optimizer
         self.action_space = spaces.Box(low=np.array([0, -self.cap_mean]),
-                                       high=np.array([30, self.cap_mean]), dtype=np.float32)
+                                       high=np.array([30, self.cap_mean]), dtype=np.float64)
 
     def get_obs(self):
         if self._current_step == 0:
@@ -191,11 +194,11 @@ class SpotEnv(gym.Env):
         self._current_step = 0
         self.t_int = 0
 
-        self.sd_cap = [np.linspace(0.1, 0, self._max_steps),
-                       np.linspace(0.15, 0, self._max_steps),
-                       np.linspace(0.2, 0, self._max_steps),
-                       np.linspace(0.25, 0, self._max_steps),
-                       np.linspace(self.bidder.sd_cap_start, 0, self._max_steps)]  # Needs to be a float
+        self.sd_cap = [np.linspace(0.1, 0, self._max_steps, dtype=np.float64),
+                       np.linspace(0.15, 0, self._max_steps, dtype=np.float64),
+                       np.linspace(0.2, 0, self._max_steps, dtype=np.float64),
+                       np.linspace(0.25, 0, self._max_steps, dtype=np.float64),
+                       np.linspace(self.bidder.sd_cap_start, 0, self._max_steps, dtype=np.float64)]
 
         self.bidder_DA_cap = [np.random.normal(loc=self.cap_mean, scale=self.sd_cap[-1][self.t_int] * self.cap_mean)]
 
@@ -234,9 +237,9 @@ class SpotEnv(gym.Env):
             'x_bought': 'float64',
             'x_sold': 'float64',
             'x_da': 'float64',
-            'x_imb': 'float32',
+            'x_imb': 'float64',
             'x_prod': 'float64',
-            'x_cap': 'float32',
+            'x_cap': 'float64',
             'lambda_hat_int': 'float64',
             'true_costs': 'object',  # Ensure true_costs is treated as object
             'revenue': 'float64',
@@ -247,26 +250,26 @@ class SpotEnv(gym.Env):
         return obs, {}
 
     def step(self, action):  # action is an array (price, volume)
-        if self._current_step == 0:
-            (f'\nNew game')
-        print(f'Current step:   {self._current_step} \nAction:         {action}')
+        # if self._current_step == 0:
+        #     print(f'\nNew game')
+        #print(f'Current step:   {self._current_step} \nAction:         {action}')
 
         x_cap = [np.random.normal(
             loc=self.cap_mean,
             scale=self.sd_cap[i][self.t_int] * self.cap_mean
         ) for i in range(self.N)]
 
-        # Day-ahead auction
         done = False
         truncated = False
+        # Day-ahead auction
         if self._current_step == 0:
 
             x, marginal_price, payments, social_welfare = optimize_alloc(action[0], self.other_costs, self.Q,
                                                                          x_cap[:-1] + [max(0, action[1])])
 
             payoff = calc_payoff_DA(self.N, payments, x, self.other_costs, self.bidder)
-
             bidder_payoff = payoff[-1]
+            bidder_payment = payments[-1]
 
             for i in range(self.N):
                 self.df_bidders.at[i, 'x_da'] = x[i]
@@ -276,6 +279,7 @@ class SpotEnv(gym.Env):
                     self.df_bidders.at[i, 'x_cap'] = x_cap[i]
 
             # TODO: Aftermarket evaluation; how to fill replay buffer?
+            #       Idea: double self._max_steps and let first half be DA auctions without counting payoff
             regret = aftermarket_evaluation(self.other_costs, self.Q, x_cap[:-1] + self.bidder_DA_cap,
                                             self._current_step, self.bidder)
 
@@ -283,9 +287,17 @@ class SpotEnv(gym.Env):
             self.bidder.history_action.append(action)
             self.bidder.history_payoff.append(bidder_payoff)
 
+        elif self._current_step <= self.bidder.aftermarket_exploration:
+            x_tmp, marginal_price_tmp, payments_tmp, sw = optimize_alloc(action[0], self.other_costs, self.Q,
+                                                                         x_cap[:-1] + [max(0, action[1])])
+            payoff = calc_payoff_DA(self.N, payments_tmp, x_tmp, self.other_costs, self.bidder)
+
+            bidder_payment = payments_tmp[-1]
+
         # Intraday auction
         else:
             bidder_payoff = 0
+            bidder_payment = 0
             while True:
                 player = np.random.randint(0, self.N)
                 # TODO: write price guessing function; Placeholder: random lambda_hat_int
@@ -307,13 +319,15 @@ class SpotEnv(gym.Env):
                 self.df_order_book, self.df_bidders = update_books(self.df_order_book, self.df_bidders, player,
                                                                    new_post, x_prod, x_imb)
 
+                # TODO: Check payoff calculation logic
                 # Calculate cumulated payoff until it's her turn again
                 bidder_payoff += calc_payoff_int_strategic(self.N - 1, self.bidder, self.df_bidders, rev_before_match)
+                bidder_payment += self.df_bidders.at[self.N - 1, 'revenue'] - rev_before_match
 
                 # log
                 self.bidder.history_payoff.append(bidder_payoff)
                 # Intraday timer
-                print(f'Current t:  {self.t_int}\n')
+                #print(f'Current t:  {self.t_int}\n')
                 self.t_int += 1
                 if self.t_int >= self._max_steps:
                     truncated = True
@@ -321,10 +335,14 @@ class SpotEnv(gym.Env):
                 if player == self.N - 1:
                     break
 
+        # TODO: Make sure imbalance is calculated correctly (e.g. x_prod gets updated to reduce x_imb)
+
         # Define state and reward
-        imbalance_penalty = (self._current_step / (self._max_steps - self._current_step + 1e-5)
+        imbalance_penalty = (self.t_int / (self._max_steps - self.t_int + 1e-5)
                              * self.df_bidders.at[self.N - 1, 'x_imb'])
-        reward = bidder_payoff - imbalance_penalty
+        production_cost = (0.5 * self.bidder_costs[0][1] * self.df_bidders.at[self.N - 1, 'x_prod'] ** 2
+                           + self.bidder_costs[0][1] * self.df_bidders.at[self.N - 1, 'x_prod'])
+        reward = bidder_payment - imbalance_penalty - production_cost
         self._state = {
             'Order book': self.df_order_book,
             'Bidders': self.df_bidders,

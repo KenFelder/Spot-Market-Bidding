@@ -1,5 +1,6 @@
 import cvxpy as cp
 
+# TODO: Check Bid/Ask integrity
 def bid_intra_trustfull(player, df_bidders, t_l, t_int):
     a = df_bidders.at[player, 'true_costs'][0]
     b = df_bidders.at[player, 'true_costs'][1]
