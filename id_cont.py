@@ -105,34 +105,54 @@ def match_maker(df_order_book):
 
     return None, None, None, None, df_order_book
 
+
+def correct_bidder_state(player, df_bidders, x_prod, x_imb):
+    df_bidders.at[player, 'x_prod'] = (df_bidders.at[player, 'x_da'] + df_bidders.at[player, 'x_sold'] -
+                                       df_bidders.at[player, 'x_bought'])
+    if df_bidders.at[player, 'x_prod'] > df_bidders.at[player, 'x_cap']:
+        df_bidders.at[player, 'x_prod'] = df_bidders.at[player, 'x_cap']
+    elif df_bidders.at[player, 'x_prod'] < 0:
+        df_bidders.at[player, 'x_prod'] = 0
+    df_bidders.at[player, 'x_imb'] = (df_bidders.at[player, 'x_bought'] + df_bidders.at[player, 'x_prod'] -
+                                      df_bidders.at[player, 'x_da'] - df_bidders.at[player, 'x_sold'])
+    return df_bidders
+
+
 def update_books(df_order_book, df_bidders, bidder, new_post, x_prod, x_imb):
     # remove old bids/asks from order book
     df_order_book = df_order_book.copy()
+    print(df_order_book)
     df_order_book = df_order_book[df_order_book["participant"] != bidder]
 
     # Unpack new_post tuple
     lambda_hat_int, new_volume, bid_flag, t_int = new_post
     # Add new bid/ask to order book
-    df_order_book.loc[len(df_order_book)] = [bid_flag, lambda_hat_int, new_volume, bidder, t_int]
+    df_order_book = df_order_book.copy()
+    df_order_book.loc[len(df_order_book)+1] = [bid_flag, lambda_hat_int, new_volume, bidder, t_int]
 
     # sort order book
     df_order_book = df_order_book.sort_values(by="price", ascending=False)
     df_order_book = df_order_book.reset_index(drop=True)
 
+    print(f'Player: {bidder}')
+    print(f'New_order: {new_post} (price, volume, bid_flag, t_int)')
+    print(f'Order_book: \n{df_order_book}')
+    print(f'Bidders: \n{df_bidders[['x_bought', 'x_sold', 'x_da', 'x_imb', 'x_prod', 'x_cap']]}')
+    print(f'Revenues: \n{df_bidders["revenue"]}\n')
+
+    # possibly more matches than just one
     while True:
         price, volume, buyer, seller, df_order_book = match_maker(df_order_book)
         if price is None:
             break
         else:
-#            print(f"Matched price: {price}, volume: {volume}, buyer: {buyer}, seller: {seller}")
             df_bidders.at[buyer, 'x_bought'] += volume
             df_bidders.at[seller, 'x_sold'] += volume
             df_bidders.at[buyer, 'revenue'] -= price * volume
             df_bidders.at[seller, 'revenue'] += price * volume
 
-    # Update bidder's x_prod and x_imb
-    df_bidders.at[bidder, 'x_prod'] = x_prod
-    df_bidders.at[bidder, 'x_imb'] = x_imb
+            df_bidders = correct_bidder_state(buyer, df_bidders, x_prod, x_imb)
+            df_bidders = correct_bidder_state(seller, df_bidders, x_prod, x_imb)
 
     # Remove rows where volume reaches 0.1
     df_order_book = df_order_book[df_order_book["volume"] > 0.09]
@@ -142,6 +162,7 @@ def update_books(df_order_book, df_bidders, bidder, new_post, x_prod, x_imb):
 
     # Return the updated DataFrames
     return df_order_book, df_bidders
+
 
 def calc_payoff_int_strategic(idx, bidder, df_bidders, rev_before_match):
     return df_bidders.at[idx, 'revenue'] - rev_before_match - (0.5 * bidder.costs[0] * df_bidders.at[idx, 'x_prod'] ** 2

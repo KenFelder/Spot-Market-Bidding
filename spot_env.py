@@ -3,8 +3,8 @@ import gymnasium as gym
 from gymnasium import spaces
 import pandas as pd
 import pickle
-from DA_Auction import optimize_alloc, calc_payoff_DA, aftermarket_evaluation
-from id_cont import bid_intra_trustful, bid_intra_strategic, calc_payoff_int_strategic, update_books
+from DA_Auction import optimize_alloc, calc_payoff_DA
+from id_cont import bid_intra_trustful, bid_intra_strategic, update_books
 from bidder_classes import Bidder
 
 
@@ -312,8 +312,6 @@ class SpotEnv(gym.Env):
                                                                    new_post, x_prod, x_imb)
 
                 # TODO: Check payoff calculation logic
-                # Calculate cumulated payoff until it's her turn again
-                bidder_payoff += calc_payoff_int_strategic(self.N - 1, self.bidder, self.df_bidders, rev_before_match)
                 bidder_payment += self.df_bidders.at[self.N - 1, 'revenue'] - rev_before_match
 
                 # log

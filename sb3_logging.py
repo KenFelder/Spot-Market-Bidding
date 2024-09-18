@@ -34,6 +34,6 @@ class TensorboardCallback(BaseCallback):
             self.logger.record(f'environment_{env_idx}/player imbalance', player_imbalance)
 
         # Dump logs to TensorBoard
-        self.logger.dump(self.num_timesteps)
+        #self.logger.dump(self.num_timesteps)
 
         return True  # Continue training

@@ -72,7 +72,7 @@ def PPO_game(env, callback):
     model_dir = f"./models/ppo_spot_model/{timestamp}/"
 
     # Parallel environments
-    vec_env = make_vec_env(lambda: SpotEnv(t_max=200, n=5, q=1448.4, cap_mean=700), n_envs=3)
+    vec_env = make_vec_env(lambda: SpotEnv(t_max=200, n=5, q=1448.4, cap_mean=700), n_envs=1)
 
     # Train the PPO model
     print(timestamp)
