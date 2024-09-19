@@ -49,6 +49,9 @@ class SpotEnv(gym.Env):
             'timestamp': 'int64'
         })
 
+        self.top_bid_prices = []
+        self.top_ask_prices = []
+
         data_bidders = {
             "x_bought": [0] * self.N,
             "x_sold": [0] * self.N,
@@ -216,6 +219,9 @@ class SpotEnv(gym.Env):
             'timestamp': 'int64'
         })
 
+        self.top_bid_prices = []
+        self.top_ask_prices = []
+
         data_bidders = {
             "x_bought": [0] * self.N,
             "x_sold": [0] * self.N,
@@ -308,8 +314,12 @@ class SpotEnv(gym.Env):
 
                 rev_before_match = self.df_bidders.at[self.N - 1, 'revenue']
 
-                self.df_order_book, self.df_bidders = update_books(self.df_order_book, self.df_bidders, player,
-                                                                   new_post, x_prod, x_imb)
+
+
+
+                self.df_order_book, self.df_bidders, self.top_bid_prices, self.top_ask_prices = (
+                    update_books(self.df_order_book, self.df_bidders, player, new_post, x_prod, x_imb,
+                                 self.top_bid_prices, self.top_ask_prices))
 
                 # TODO: Check payoff calculation logic
                 bidder_payment += self.df_bidders.at[self.N - 1, 'revenue'] - rev_before_match

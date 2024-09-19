@@ -144,7 +144,7 @@ def trustful_vs_bidder(bidder, num_runs, T, T_ID, file_name):
                 df_bidders.at[player, 'x_cap'] = cap[player]
                 x_prod, x_imb, new_post = bid_intra_trustful(player, df_bidders, T_ID, t_int)
 
-                df_order_book, df_bidders = update_books(df_order_book, df_bidders, player, new_post, x_prod, x_imb)
+                df_order_book, df_bidders, df_match_book = update_books(df_order_book, df_bidders, player, new_post, x_prod, x_imb)
 
 
             print(df_bidders)
