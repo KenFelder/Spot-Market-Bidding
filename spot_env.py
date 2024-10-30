@@ -4,8 +4,9 @@ from gymnasium import spaces
 import pandas as pd
 import pickle
 from DA_Auction import optimize_alloc, calc_payoff_DA
-from id_cont import bid_intra_trustful, bid_intra_strategic, update_books
+from id_cont import bid_intra_trustful, bid_intra_strategic, update_books, correct_bidder_state
 from bidder_classes import Bidder
+from price_calc import calc_prices
 
 
 # TODO: Check Bid/Ask integrity
@@ -51,6 +52,12 @@ class SpotEnv(gym.Env):
 
         self.top_bid_prices = []
         self.top_ask_prices = []
+        self.equilibrium_price_estimate_list = []
+        self.volatilities = [0]
+        self.transaction_prices = []
+        self.last_event = None
+        self.last_price = 0
+        self.max_price = 30
 
         data_bidders = {
             "x_bought": [0] * self.N,
@@ -60,7 +67,17 @@ class SpotEnv(gym.Env):
             "x_prod": [0] * self.N,
             "x_cap": [0] * (self.N - 1) + self.bidder_DA_cap,
             "true_costs": self.other_costs + self.bidder_costs,
-            "lambda_hat_int": [0] * self.N,
+            "production_costs": [0] * self.N,
+            "ask_price": [0] * self.N,
+            "bid_price": [0] * self.N,
+            "limit_buy": [0] * self.N,
+            "limit_sell": [0] * self.N,
+            "target_price_param": [1e-5] * self.N,
+            "target_price_param_step_factor": [0.3, 0.4, 0.2, 0.5, 0.6],  # TODO: Find values
+            "aggressiveness_buy": [-0.5] * self.N,
+            "aggressiveness_sell": [-0.5] * self.N,
+            "aggressiveness_step_factor": [0.3, 0.4, 0.2, 0.5, 0.6],  # TODO: Find values
+            "bid_step_factor": [3] * self.N,  # TODO: Find values
             "revenue": [0] * self.N
         }
 
@@ -74,8 +91,18 @@ class SpotEnv(gym.Env):
             'x_imb': 'float64',
             'x_prod': 'float64',
             'x_cap': 'float64',
-            'lambda_hat_int': 'float64',
             'true_costs': 'object',  # Tuple
+            'production_costs': 'float64',
+            "ask_price": 'float64',
+            "bid_price": 'float64',
+            "limit_buy": 'float64',
+            "limit_sell": 'float64',
+            "target_price_param": 'float64',
+            "target_price_param_step_factor": 'float64',
+            "aggressiveness_buy": 'float64',
+            "aggressiveness_sell": 'float64',
+            "aggressiveness_step_factor": 'float64',
+            "bid_step_factor": 'float64',
             'revenue': 'float64',
         })
 
@@ -91,8 +118,10 @@ class SpotEnv(gym.Env):
             'x_sold': spaces.Box(low=0, high=np.inf, dtype=np.float64),
             'revenue': spaces.Box(low=-np.inf, high=np.inf, dtype=np.float64),
             # Public information
-            'Best bid (price, volume)': spaces.Box(low=np.array([-np.inf, 0]), high=np.array([np.inf, np.inf]), dtype=np.float64),
-            'Best ask (price, volume)': spaces.Box(low=np.array([-np.inf, 0]), high=np.array([np.inf, np.inf]), dtype=np.float64),
+            'Best bid (price, volume)': spaces.Box(low=np.array([-np.inf, 0]), high=np.array([np.inf, np.inf]),
+                                                   dtype=np.float64),
+            'Best ask (price, volume)': spaces.Box(low=np.array([-np.inf, 0]), high=np.array([np.inf, np.inf]),
+                                                   dtype=np.float64),
             #'Last trade (price, volume)': spaces.Box(low=np.array([-np.inf, 0]), high=np.array([np.inf, np.inf]),
             #                                         dtype=np.float64),
             #'Volume weighted average prices (bid, ask)': spaces.Box(low=np.array([-np.inf, -np.inf]),
@@ -102,7 +131,7 @@ class SpotEnv(gym.Env):
         })
 
         self.action_space = spaces.Box(low=np.array([0, -self.cap_mean]),
-                                       high=np.array([30, self.cap_mean]), dtype=np.float64)
+                                       high=np.array([self.max_price, self.cap_mean]), dtype=np.float64)
 
     def get_obs(self):
         if self._current_step == 0:
@@ -120,23 +149,6 @@ class SpotEnv(gym.Env):
                 'steps left': np.array([self.t_max - self.t_int]),
             }
 
-            # obs = {
-            #     # Private information
-            #     'x_cap': np.array([self.df_bidders.loc[self.N - 1, 'x_cap']]),
-            #     'x_imb': self.df_bidders.loc[self.N - 1, 'x_imb'],
-            #     'x_prod': self.df_bidders.loc[self.N - 1, 'x_prod'],
-            #     'x_da': self.df_bidders.loc[self.N - 1, 'x_da'],
-            #     'x_bought': self.df_bidders.loc[self.N - 1, 'x_bought'],
-            #     'x_sold': self.df_bidders.loc[self.N - 1, 'x_sold'],
-            #     'revenue': self.df_bidders.loc[self.N - 1, 'revenue'],
-            #     # Public information
-            #     'Best bid (price, volume)': np.array([0, 0]),
-            #     'Best ask (price, volume)': np.array([0, 0]),
-            #     #'Last trade (price, volume)': None,
-            #     #'Volume weighted average prices (bid, ask)': None,
-            #     'Sum volume (bid, ask)': np.array([0, 0]),
-            #     'steps left': self._max_steps,
-            # }
         else:
             # TODO: calc last trade, volume weighted average prices
             len_bids = len(self.df_order_book[self.df_order_book['bid_flag'] == 1])
@@ -168,24 +180,6 @@ class SpotEnv(gym.Env):
                 'Sum volume (bid, ask)': np.array([0, 0]),
                 'steps left': np.array([self.t_max - self.t_int]),
             }
-
-            # obs = {
-            #     # Private information
-            #     'x_cap': self.df_bidders.loc[self.N - 1, 'x_cap'],
-            #     'x_imb': self.df_bidders.loc[self.N - 1, 'x_imb'],
-            #     'x_prod': self.df_bidders.loc[self.N - 1, 'x_prod'],
-            #     'x_da': self.df_bidders.loc[self.N - 1, 'x_da'],
-            #     'x_bought': self.df_bidders.loc[self.N - 1, 'x_bought'],
-            #     'x_sold': self.df_bidders.loc[self.N - 1, 'x_sold'],
-            #     'revenue': self.df_bidders.loc[self.N - 1, 'revenue'],
-            #     # Public information
-            #     'Best bid (price, volume)': np.array([best_bid['price'], best_bid['volume']]),
-            #     'Best ask (price, volume)': np.array([best_ask['price'], best_ask['volume']]),
-            #     #'Last trade (price, volume)': None,
-            #     #'Volume weighted average prices (bid, ask)': None,
-            #     'Sum volume (bid, ask)': np.array([sum_volume_bid, sum_volume_ask]),
-            #     'steps left': self._max_steps - self.t_int,
-            # }
 
         return obs
 
@@ -221,6 +215,11 @@ class SpotEnv(gym.Env):
 
         self.top_bid_prices = []
         self.top_ask_prices = []
+        self.equilibrium_price_estimate_list = []
+        self.volatilities = [0]
+        self.transaction_prices = []
+        self.last_event = None
+        self.last_price = 0
 
         data_bidders = {
             "x_bought": [0] * self.N,
@@ -230,7 +229,17 @@ class SpotEnv(gym.Env):
             "x_prod": [0] * self.N,
             "x_cap": [0] * (self.N - 1) + self.bidder_DA_cap,
             "true_costs": self.other_costs + self.bidder_costs,
-            "lambda_hat_int": [0] * self.N,
+            "production_costs": [0] * self.N,
+            "ask_price": [0] * self.N,
+            "bid_price": [0] * self.N,
+            "limit_buy": [0] * self.N,
+            "limit_sell": [0] * self.N,
+            "target_price_param": [1e-5] * self.N,
+            "target_price_param_step_factor": [0.3, 0.4, 0.2, 0.5, 0.6],
+            "aggressiveness_buy": [0] * self.N,
+            "aggressiveness_sell": [0] * self.N,
+            "aggressiveness_step_factor": [0.3, 0.4, 0.2, 0.5, 0.6],
+            "bid_step_factor": [3] * self.N,
             "revenue": [0] * self.N
         }
 
@@ -244,8 +253,18 @@ class SpotEnv(gym.Env):
             'x_imb': 'float64',
             'x_prod': 'float64',
             'x_cap': 'float64',
-            'lambda_hat_int': 'float64',
-            'true_costs': 'object',  # Ensure true_costs is treated as object
+            'true_costs': 'object',  # Tuple
+            'production_costs': 'float64',
+            "ask_price": 'float64',
+            "bid_price": 'float64',
+            "limit_buy": 'float64',
+            "limit_sell": 'float64',
+            "target_price_param": 'float64',
+            "target_price_param_step_factor": 'float64',
+            "aggressiveness_buy": 'float64',
+            "aggressiveness_sell": 'float64',
+            "aggressiveness_step_factor": 'float64',
+            "bid_step_factor": 'float64',
             'revenue': 'float64',
         })
 
@@ -279,13 +298,24 @@ class SpotEnv(gym.Env):
                 self.df_bidders.at[i, 'x_da'] = x[i]
                 self.df_bidders.at[i, 'x_prod'] = x[i]
                 self.df_bidders.at[i, 'revenue'] += payments[i]
+                self.df_bidders.at[i, 'production_costs'] = (
+                            0.5 * self.df_bidders.at[i, "true_costs"][0] * self.df_bidders.at[i, "x_prod"] **
+                            2 + self.df_bidders.at[i, "true_costs"][1] * self.df_bidders.at[i, "x_prod"])
+
                 if i < self.N - 1:
                     self.df_bidders.at[i, 'x_cap'] = x_cap[i]
+            self.df_bidders['limit_buy'] = marginal_price  # TODO: random parameter. Find good one (maybe zero?)
+            self.df_bidders['limit_sell'] = marginal_price  # TODO: random parameter. Find good one (maybe zero?)
+
+            self.last_price = marginal_price
+            self.transaction_prices.append(marginal_price)
+            self.last_event = 'match'
 
             # log
             self.bidder.history_action.append(action)
             self.bidder.history_payoff.append(bidder_payoff)
 
+        # Aftermarket exploration
         elif self._current_step <= self.bidder.aftermarket_exploration:
             x_tmp, marginal_price_tmp, payments_tmp, sw = optimize_alloc(action[0], self.other_costs, self.Q,
                                                                          x_cap[:-1] + [max(0, action[1])])
@@ -298,15 +328,32 @@ class SpotEnv(gym.Env):
             bidder_payment = 0
             while True:
                 player = np.random.randint(0, self.N)
-                # TODO: write price guessing function; Placeholder: random lambda_hat_int
-                self.df_bidders.at[player, 'lambda_hat_int'] = np.random.randint(10, 30)
-                self.df_bidders.at[player, 'x_cap'] = x_cap[player]
+                # TODO: check price function
+                #self.df_bidders.at[player, 'lambda_hat_int'] = np.random.randint(10, 30)
+
+                for i in self.df_bidders.index:
+                    self.df_bidders.at[i, 'x_cap'] = x_cap[i]
+                    self.df_bidders = correct_bidder_state(i, self.df_bidders)
+
+                self.df_bidders, self.volatilities, equilibrium_price_estimate = calc_prices(self.t_int, self.t_max,
+                                                                 self.transaction_prices, self.last_price,
+                                                                 self.df_bidders, self.df_order_book, self.volatilities,
+                                                                 self.last_event, self.max_price)
+
+
 
                 if player != self.N - 1:
                     x_prod, x_imb, new_post = bid_intra_trustful(player, self.df_bidders, self.t_max,
                                                                  self.t_int)
                     # log action
                     self.bidder.history_action.append(None)
+
+                # TODO: delete this block to include rl again
+                elif player == self.N - 1:
+                    new_post = (0, 0, 1, self.t_int)
+                    x_prod = self.df_bidders.at[self.N - 1, 'x_prod']
+                    x_imb = self.df_bidders.at[self.N - 1, 'x_imb']
+
                 else:
                     x_prod, x_imb, new_post = bid_intra_strategic(action, player, self.df_bidders, self.t_int)
                     # log action
@@ -314,12 +361,14 @@ class SpotEnv(gym.Env):
 
                 rev_before_match = self.df_bidders.at[self.N - 1, 'revenue']
 
+                (self.df_order_book, self.df_bidders, self.top_bid_prices, self.top_ask_prices, self.last_event,
+                 self.last_price, self.transaction_prices) = (update_books(self.df_order_book, self.df_bidders, player, new_post, x_prod, x_imb,
+                                     self.top_bid_prices, self.top_ask_prices, self.transaction_prices))
 
+                fill_eq_list = len(self.top_ask_prices) - len(self.equilibrium_price_estimate_list)
 
-
-                self.df_order_book, self.df_bidders, self.top_bid_prices, self.top_ask_prices = (
-                    update_books(self.df_order_book, self.df_bidders, player, new_post, x_prod, x_imb,
-                                 self.top_bid_prices, self.top_ask_prices))
+                for _ in range(fill_eq_list):
+                    self.equilibrium_price_estimate_list.append(equilibrium_price_estimate)
 
                 # TODO: Check payoff calculation logic
                 bidder_payment += self.df_bidders.at[self.N - 1, 'revenue'] - rev_before_match
@@ -340,8 +389,7 @@ class SpotEnv(gym.Env):
         # Define state and reward
         imbalance_penalty = (self.t_int / (self.t_max - self.t_int + 1e-5)
                              * self.df_bidders.at[self.N - 1, 'x_imb'])
-        production_cost = (0.5 * self.bidder_costs[0][1] * self.df_bidders.at[self.N - 1, 'x_prod'] ** 2
-                           + self.bidder_costs[0][1] * self.df_bidders.at[self.N - 1, 'x_prod'])
+        production_cost = self.df_bidders.at[self.N - 1, 'production_costs']
         reward = bidder_payment - imbalance_penalty - production_cost
 
         self._current_step += 1
@@ -350,5 +398,8 @@ class SpotEnv(gym.Env):
             done = True
 
         obs = self.get_obs()
+
+        if self.t_int == self.t_max:
+            done = True  # breakpoint to check out graphs
 
         return obs, reward, done, truncated, {}

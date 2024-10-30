@@ -76,7 +76,7 @@ def PPO_game(env, callback):
 
     # Train the PPO model
     print(timestamp)
-    model = PPO("MultiInputPolicy", vec_env, verbose=1, tensorboard_log=log_dir)
+    model = PPO("MultiInputPolicy", vec_env, verbose=1, tensorboard_log=log_dir, ent_coef=0.1)
     model.learn(total_timesteps=100, log_interval=10, progress_bar=True, callback=TensorboardCallback())
     model.save(model_dir)
     #del model  # Remove model to demonstrate loading
@@ -119,7 +119,7 @@ def SAC_game(env, callback):
 
 
 if __name__ == '__main__':
-    env = SpotEnv(t_max=100, n=5, q=1448.4, cap_mean=700)
+    env = SpotEnv(t_max=200, n=5, q=2000, cap_mean=700)
     callback = TensorboardCallback()
     #env = FlattenObservation(env)
     PPO_game(env, callback)  # TODO: Not learning, maybe missing state? Bad selection of obs?

@@ -35,9 +35,9 @@ class TensorboardCallback(BaseCallback):
         for env_idx in range(self.training_env.num_envs):
             top_ask_prices = self.training_env.envs[env_idx].unwrapped.top_ask_prices
             top_bid_prices = self.training_env.envs[env_idx].unwrapped.top_bid_prices
+            t_int = self.training_env.envs[env_idx].unwrapped.t_int
+            equilibrium_price_estimate_list = self.training_env.envs[env_idx].unwrapped.equilibrium_price_estimate_list
 
-            print(f"top_ask_prices: {top_ask_prices}")
-            print(f"top_bid_prices: {top_bid_prices}")
 
             # Access specific data from the unwrapped environment
             df_bidders = self.training_env.envs[env_idx].unwrapped.df_bidders
@@ -54,6 +54,7 @@ class TensorboardCallback(BaseCallback):
             self.logger.record(f'environment_{env_idx}/volume', action[1])  # Assuming action[1] is volume
             self.logger.record(f'environment_{env_idx}/system imbalance', system_imbalance)
             self.logger.record(f'environment_{env_idx}/player imbalance', player_imbalance)
+            self.logger.record(f'environment_{env_idx}/time', t_int)
 
             #if dones[env_idx]:
 
@@ -62,9 +63,15 @@ class TensorboardCallback(BaseCallback):
             # Create the figure and axis
             fig, ax = plt.subplots()
 
-            # Plot ask and bid prices on the same axis
-            ax.plot(t, top_ask_prices, label='Ask prices')
-            ax.plot(t, top_bid_prices, label='Bid prices')
+            # Plot ask (red) and bid prices (green) on the same axis
+            ax.plot(t, top_ask_prices, label='Ask prices', color='red')
+            ax.plot(t, top_bid_prices, label='Bid prices', color='green')
+            ax.plot(t, equilibrium_price_estimate_list, label='Equilibrium price estimate', linestyle='--',
+                    color='blue')
+
+            # limit y-axis to 20-30
+            if len(equilibrium_price_estimate_list) > 0:
+                ax.set_ylim([min(equilibrium_price_estimate_list) - 2, max(equilibrium_price_estimate_list) + 2])
 
             # Add labels and title
             ax.set_xlabel('Time')

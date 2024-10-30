@@ -8,7 +8,8 @@ def bid_intra_trustful(player, df_bidders, t_l, t_int):
     x_bought = df_bidders.at[player, 'x_bought']
     x_sold = df_bidders.at[player, 'x_sold']
 
-    lambda_hat_int = df_bidders.at[player, 'lambda_hat_int']
+    ask_price = df_bidders.at[player, 'ask_price']
+    bid_price = df_bidders.at[player, 'bid_price']
 
     x_cap = df_bidders.at[player, 'x_cap']
 
@@ -18,8 +19,9 @@ def bid_intra_trustful(player, df_bidders, t_l, t_int):
     bid_flag = cp.Variable(boolean=True)
 
     x_imb = x_sell_int - x_buy_int
+    #x_imb = x_prod + x_bought + x_buy_int - x_da - x_sold - x_sell_int
 
-    payoff_new_bid = lambda_hat_int * (x_sell_int - x_buy_int)
+    payoff_new_bid = ask_price * x_sell_int - bid_price * x_buy_int
     cost_prod = 0.5 * a * x_prod ** 2 + b * x_prod
     penalty_imb = t_int / (t_l - t_int + 1e-5) * cp.abs(x_imb)
 
@@ -48,9 +50,9 @@ def bid_intra_trustful(player, df_bidders, t_l, t_int):
 #    print(f"Imbalance (volume):                             {x_imb.value}")
 
     if bid_flag.value == 0:
-        new_post = (lambda_hat_int, x_sell_int.value, bid_flag.value, t_int)  # (float, float, int)
+        new_post = (ask_price, x_sell_int.value, bid_flag.value, t_int)  # (float, float, int)
     else:
-        new_post = (lambda_hat_int, x_buy_int.value, bid_flag.value, t_int)  # (float, float, int)
+        new_post = (bid_price, x_buy_int.value, bid_flag.value, t_int)  # (float, float, int)
 
     return x_prod.value, x_imb.value, new_post
 
@@ -73,13 +75,13 @@ def match_maker(df_order_book, top_bid_prices, top_ask_prices):
         top_bid = df_order_book[df_order_book["bid_flag"] == 1].iloc[0]
         top_bid_prices.append(top_bid["price"])
     else:
-        top_bid_prices.append(30)
+        top_bid_prices.append(0)
 
     if len_asks > 0:
         top_ask = df_order_book[df_order_book["bid_flag"] == 0].iloc[-1]
         top_ask_prices.append(top_ask["price"])
     else:
-        top_ask_prices.append(0)
+        top_ask_prices.append(30)
 
 
     if len_bids > 0 and len_asks > 0 and (top_bid["price"] >= top_ask["price"]):
@@ -106,7 +108,7 @@ def match_maker(df_order_book, top_bid_prices, top_ask_prices):
     return None, None, None, None, df_order_book, top_bid_prices, top_ask_prices
 
 
-def correct_bidder_state(player, df_bidders, x_prod, x_imb):
+def correct_bidder_state(player, df_bidders):
     df_bidders.at[player, 'x_prod'] = (df_bidders.at[player, 'x_da'] + df_bidders.at[player, 'x_sold'] -
                                        df_bidders.at[player, 'x_bought'])
 
@@ -158,7 +160,7 @@ def correct_bidder_state(player, df_bidders, x_prod, x_imb):
 #     # Return the updated DataFrames
 #     return df_order_book, df_bidders
 
-def update_books(df_order_book, df_bidders, bidder, new_post, x_prod, x_imb, top_bid_prices, top_ask_prices):
+def update_books(df_order_book, df_bidders, bidder, new_post, x_prod, x_imb, top_bid_prices, top_ask_prices, transaction_prices):
     # remove old bids/asks from order book
     df_order_book = df_order_book.copy()
     df_order_book = df_order_book[df_order_book["participant"] != bidder]
@@ -173,6 +175,8 @@ def update_books(df_order_book, df_bidders, bidder, new_post, x_prod, x_imb, top
     df_order_book = df_order_book.sort_values(by="price", ascending=False)
     df_order_book = df_order_book.reset_index(drop=True)
 
+    last_event = 'bid' if bid_flag == 1 else 'ask'
+
     # possibly more matches than just one
     while True:
         price, volume, buyer, seller, df_order_book, top_bid_prices, top_ask_prices = match_maker(df_order_book,
@@ -186,8 +190,19 @@ def update_books(df_order_book, df_bidders, bidder, new_post, x_prod, x_imb, top
             df_bidders.at[buyer, 'revenue'] -= price * volume
             df_bidders.at[seller, 'revenue'] += price * volume
 
-            df_bidders = correct_bidder_state(buyer, df_bidders, x_prod, x_imb)
-            df_bidders = correct_bidder_state(seller, df_bidders, x_prod, x_imb)
+            df_bidders = correct_bidder_state(buyer, df_bidders)
+            df_bidders = correct_bidder_state(seller, df_bidders)
+
+            last_event = 'match'
+            last_price = price
+            transaction_prices.append(price)
+
+    if last_event == 'bid':
+        last_price = top_bid_prices[-1]
+    elif last_event == 'ask':
+        last_price = top_ask_prices[-1]
+
+    df_bidders = correct_bidder_state(bidder, df_bidders)
 
     # Remove rows where volume reaches 0.1
     df_order_book = df_order_book[df_order_book["volume"] > 0.09]
@@ -196,7 +211,7 @@ def update_books(df_order_book, df_bidders, bidder, new_post, x_prod, x_imb, top
     df_order_book = df_order_book.reset_index(drop=True)
 
     # Return the updated DataFrames
-    return df_order_book, df_bidders, top_bid_prices, top_ask_prices
+    return df_order_book, df_bidders, top_bid_prices, top_ask_prices, last_event, last_price, transaction_prices
 
 def calc_payoff_int_strategic(idx, bidder, df_bidders, rev_before_match):
     return df_bidders.at[idx, 'revenue'] - rev_before_match - (0.5 * bidder.costs[0] * df_bidders.at[idx, 'x_prod'] **
