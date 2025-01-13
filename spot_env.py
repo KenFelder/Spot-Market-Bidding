@@ -1,117 +1,67 @@
+import os
+from datetime import datetime
 import numpy as np
 import gymnasium as gym
 from gymnasium import spaces
 import pandas as pd
 import pickle
-from DA_Auction import optimize_alloc, calc_payoff_DA
-from id_cont import bid_intra_trustful, bid_intra_strategic, update_books, correct_bidder_state
+from init import *
+from utils import *
+from DA_Auction import *
+from id_cont import *
 from bidder_classes import Bidder
-from price_calc import calc_prices
-
+from price_calc import *
+from config import *
 
 # TODO: Check Bid/Ask integrity
 class SpotEnv(gym.Env):
-    def __init__(self, t_max=200, n=5, q=1448.4, cap_mean=700):
-
+    def __init__(self):
+        #### Steps
         self._current_step = 0
         self.t_int = 0
-
-        self.N = n
-        self.bidder = Bidder()
-        self.bidder_costs = [self.bidder.costs]  # Needs to be tuple
-        self.other_costs = [(0.07, 9), (0.02, 10), (0.03, 12), (0.008, 12)]
-
         self.t_max = t_max
-        self._max_steps = t_max + self.bidder.aftermarket_exploration
+        self._max_steps = self.t_max + aftermarket_expl
 
-        self.Q = q
-        self.cap_mean = cap_mean
-        self.sd_cap = [np.linspace(0.1, 0, self.t_max, dtype=np.float64),
-                       np.linspace(0.15, 0, self.t_max, dtype=np.float64),
-                       np.linspace(0.2, 0, self.t_max, dtype=np.float64),
-                       np.linspace(0.25, 0, self.t_max, dtype=np.float64),
-                       np.linspace(self.bidder.sd_cap_start, 0, self.t_max, dtype=np.float64)]
+        #### Forecasting
+        ## Renewable generation
+        self.x_re_cap, self.x_cap, self.x_demand = init_forecasts(self)
 
-        self.bidder_DA_cap = [np.random.normal(loc=self.cap_mean, scale=self.sd_cap[-1][self.t_int] * self.cap_mean)]
+        #### Intraday Market
+        ## Order Book Dataframe
+        self.df_order_book = init_order_book(self)
 
-        data_ob = {
-            "bid_flag": [],
-            "price": [],
-            "volume": [],
-            "participant": [],
-            "timestamp": []
-        }
-        self.df_order_book = pd.DataFrame(data_ob)
-        self.df_order_book = self.df_order_book.astype({
-            'bid_flag': 'int64',
-            'price': 'float64',
-            'volume': 'float64',
-            'participant': 'int64',
-            'timestamp': 'int64'
-        })
+        ## Bidder Dataframe
+        self.df_bidders = init_bidders(self)
 
-        self.top_bid_prices = []
-        self.top_ask_prices = []
-        self.equilibrium_price_estimate_list = []
-        self.volatilities = [0]
-        self.transaction_prices = []
-        self.last_event = None
-        self.last_price = 0
-        self.max_price = 30
+        ## Log ID
+        self.df_game_data = init_game_data(self)
+        self.df_bid_logs = init_bid_logs(self)
+        self.marginal_price = None
+        self.imbalance_penalty_factor = None
 
-        data_bidders = {
-            "x_bought": [0] * self.N,
-            "x_sold": [0] * self.N,
-            "x_da": [0] * self.N,
-            "x_imb": [0] * self.N,
-            "x_prod": [0] * self.N,
-            "x_cap": [0] * (self.N - 1) + self.bidder_DA_cap,
-            "true_costs": self.other_costs + self.bidder_costs,
-            "production_costs": [0] * self.N,
-            "ask_price": [0] * self.N,
-            "bid_price": [0] * self.N,
-            "limit_buy": [0] * self.N,
-            "limit_sell": [0] * self.N,
-            "target_price_param": [1e-5] * self.N,
-            "target_price_param_step_factor": [0.3, 0.4, 0.2, 0.5, 0.6],  # TODO: Find values
-            "aggressiveness_buy": [-0.5] * self.N,
-            "aggressiveness_sell": [-0.5] * self.N,
-            "aggressiveness_step_factor": [0.3, 0.4, 0.2, 0.5, 0.6],  # TODO: Find values
-            "bid_step_factor": [3] * self.N,  # TODO: Find values
-            "revenue": [0] * self.N
-        }
-
-        self.df_bidders = pd.DataFrame(data_bidders)
-
-        # Assign dtype to specific columns
-        self.df_bidders = self.df_bidders.astype({
-            'x_bought': 'float64',
-            'x_sold': 'float64',
-            'x_da': 'float64',
-            'x_imb': 'float64',
-            'x_prod': 'float64',
-            'x_cap': 'float64',
-            'true_costs': 'object',  # Tuple
-            'production_costs': 'float64',
-            "ask_price": 'float64',
-            "bid_price": 'float64',
-            "limit_buy": 'float64',
-            "limit_sell": 'float64',
-            "target_price_param": 'float64',
-            "target_price_param_step_factor": 'float64',
-            "aggressiveness_buy": 'float64',
-            "aggressiveness_sell": 'float64',
-            "aggressiveness_step_factor": 'float64',
-            "bid_step_factor": 'float64',
-            'revenue': 'float64',
-        })
+        self.df_ask_prices = pd.DataFrame(columns=[f'bidder_{i}' for i in range(n)])
+        self.df_bid_prices = pd.DataFrame(columns=[f'bidder_{i}' for i in range(n)])
+        self.df_bid_agg = pd.DataFrame(columns=[f'bidder_{i}' for i in range(n)])
+        self.df_ask_agg = pd.DataFrame(columns=[f'bidder_{i}' for i in range(n)])
+        self.df_limit_buy = pd.DataFrame(columns=[f'bidder_{i}' for i in range(n)])
+        self.df_limit_sell = pd.DataFrame(columns=[f'bidder_{i}' for i in range(n)])
+        self.df_target_asks = pd.DataFrame(columns=[f'bidder_{i}' for i in range(n)])
+        self.df_target_bids = pd.DataFrame(columns=[f'bidder_{i}' for i in range(n)])
+        self.df_payoffs = pd.DataFrame(columns=[f'bidder_{i}' for i in range(n)])
+        self.df_revenues = pd.DataFrame(columns=[f'bidder_{i}' for i in range(n)])
+        self.df_expenses = pd.DataFrame(columns=[f'bidder_{i}' for i in range(n)])
+        self.df_prod_costs = pd.DataFrame(columns=[f'bidder_{i}' for i in range(n)])
+        self.df_penalty_imbalances = pd.DataFrame(columns=[f'bidder_{i}' for i in range(n)])
+        self.df_imbalances = pd.DataFrame(columns=[f'bidder_{i}' for i in range(n)])
 
 
-
+        #### RL definition
+        ## Observation space
         self.observation_space = spaces.Dict({
             # Private information
             'x_cap': spaces.Box(low=0, high=np.inf, dtype=np.float64),
             'x_imb': spaces.Box(low=-np.inf, high=np.inf, dtype=np.float64),
+            'x_re_gen': spaces.Box(low=0, high=np.inf, dtype=np.float64),
             'x_prod': spaces.Box(low=0, high=np.inf, dtype=np.float64),
             'x_da': spaces.Box(low=0, high=np.inf, dtype=np.float64),
             'x_bought': spaces.Box(low=0, high=np.inf, dtype=np.float64),
@@ -130,19 +80,70 @@ class SpotEnv(gym.Env):
             'steps left': spaces.Box(low=0, high=self.t_max, dtype=np.float64),
         })
 
-        self.action_space = spaces.Box(low=np.array([0, -self.cap_mean]),
-                                       high=np.array([self.max_price, self.cap_mean]), dtype=np.float64)
+        ## Action space
+        self.action_space = spaces.Box(low=np.array([min_price, -max_bid_volume]),
+                                       high=np.array([max_price, max_ask_volume]), dtype=np.float64)
+
+    def reset(self, seed=None):
+        # log
+        self.timestamp = datetime.now().strftime('%Y%m%d_%H-%M-%S')
+        os.makedirs(f'./csv/{self.timestamp}/', exist_ok=True)
+        os.makedirs(f'./csv/{self.timestamp}/', exist_ok=True)
+        os.makedirs(f'./csv/{self.timestamp}/', exist_ok=True)
+
+        #### Steps
+        self._current_step = 0
+        self.t_int = 0
+        self.t_max = t_max
+        self._max_steps = self.t_max + aftermarket_expl
+
+        #### Forecasting
+        ## Renewable generation
+        self.x_re_cap, self.x_cap, self.x_demand = init_forecasts(self)
+
+        #### Intraday Market
+        ## Order Book Dataframe
+        self.df_order_book = init_order_book(self)
+
+        ## Bidder Dataframe
+        self.df_bidders = init_bidders(self)
+
+        ## Log ID
+        self.df_game_data = init_game_data(self)
+        self.df_bid_logs = init_bid_logs(self)
+        self.marginal_price = None
+        self.imbalance_penalty_factor = None
+
+        self.df_ask_prices = pd.DataFrame(columns=[f'bidder_{i}' for i in range(n)])
+        self.df_bid_prices = pd.DataFrame(columns=[f'bidder_{i}' for i in range(n)])
+        self.df_bid_agg = pd.DataFrame(columns=[f'bidder_{i}' for i in range(n)])
+        self.df_ask_agg = pd.DataFrame(columns=[f'bidder_{i}' for i in range(n)])
+        self.df_limit_buy = pd.DataFrame(columns=[f'bidder_{i}' for i in range(n)])
+        self.df_limit_sell = pd.DataFrame(columns=[f'bidder_{i}' for i in range(n)])
+        self.df_target_asks = pd.DataFrame(columns=[f'bidder_{i}' for i in range(n)])
+        self.df_target_bids = pd.DataFrame(columns=[f'bidder_{i}' for i in range(n)])
+        self.df_payoffs = pd.DataFrame(columns=[f'bidder_{i}' for i in range(n)])
+        self.df_revenues = pd.DataFrame(columns=[f'bidder_{i}' for i in range(n)])
+        self.df_expenses = pd.DataFrame(columns=[f'bidder_{i}' for i in range(n)])
+        self.df_prod_costs = pd.DataFrame(columns=[f'bidder_{i}' for i in range(n)])
+        self.df_penalty_imbalances = pd.DataFrame(columns=[f'bidder_{i}' for i in range(n)])
+        self.df_imbalances = pd.DataFrame(columns=[f'bidder_{i}' for i in range(n)])
+
+        obs = self.get_obs()
+
+        return obs, {}
 
     def get_obs(self):
         if self._current_step == 0:
             obs = {
-                'x_cap': np.array([self.df_bidders.loc[self.N - 1, 'x_cap']]),
-                'x_imb': np.array([self.df_bidders.loc[self.N - 1, 'x_imb']]),
-                'x_prod': np.array([self.df_bidders.loc[self.N - 1, 'x_prod']]),
-                'x_da': np.array([self.df_bidders.loc[self.N - 1, 'x_da']]),
-                'x_bought': np.array([self.df_bidders.loc[self.N - 1, 'x_bought']]),
-                'x_sold': np.array([self.df_bidders.loc[self.N - 1, 'x_sold']]),
-                'revenue': np.array([self.df_bidders.loc[self.N - 1, 'revenue']]),
+                'x_cap': np.array([self.df_bidders.loc[n - 1, 'x_cap']]),
+                'x_imb': np.array([self.df_bidders.loc[n - 1, 'x_imb']]),
+                'x_re_gen': np.array([self.df_bidders.loc[n - 1, 'x_re_gen']]),
+                'x_prod': np.array([self.df_bidders.loc[n - 1, 'x_prod']]),
+                'x_da': np.array([self.df_bidders.loc[n - 1, 'x_da']]),
+                'x_bought': np.array([self.df_bidders.loc[n - 1, 'x_bought']]),
+                'x_sold': np.array([self.df_bidders.loc[n - 1, 'x_sold']]),
+                'revenue': np.array([self.df_bidders.loc[n - 1, 'revenue']]),
                 'Best bid (price, volume)': np.array([0, 0]),
                 'Best ask (price, volume)': np.array([0, 0]),
                 'Sum volume (bid, ask)': np.array([0, 0]),
@@ -168,13 +169,14 @@ class SpotEnv(gym.Env):
                 sum_volume_ask = 0
 
             obs = {
-                'x_cap': np.array([self.df_bidders.loc[self.N - 1, 'x_cap']]),
-                'x_imb': np.array([self.df_bidders.loc[self.N - 1, 'x_imb']]),
-                'x_prod': np.array([self.df_bidders.loc[self.N - 1, 'x_prod']]),
-                'x_da': np.array([self.df_bidders.loc[self.N - 1, 'x_da']]),
-                'x_bought': np.array([self.df_bidders.loc[self.N - 1, 'x_bought']]),
-                'x_sold': np.array([self.df_bidders.loc[self.N - 1, 'x_sold']]),
-                'revenue': np.array([self.df_bidders.loc[self.N - 1, 'revenue']]),
+                'x_cap': np.array([self.df_bidders.loc[n - 1, 'x_cap']]),
+                'x_imb': np.array([self.df_bidders.loc[n - 1, 'x_imb']]),
+                'x_re_gen': np.array([self.df_bidders.loc[n - 1, 'x_re_gen']]),
+                'x_prod': np.array([self.df_bidders.loc[n - 1, 'x_prod']]),
+                'x_da': np.array([self.df_bidders.loc[n - 1, 'x_da']]),
+                'x_bought': np.array([self.df_bidders.loc[n - 1, 'x_bought']]),
+                'x_sold': np.array([self.df_bidders.loc[n - 1, 'x_sold']]),
+                'revenue': np.array([self.df_bidders.loc[n - 1, 'revenue']]),
                 'Best bid (price, volume)': np.array([0, 0]),
                 'Best ask (price, volume)': np.array([0, 0]),
                 'Sum volume (bid, ask)': np.array([0, 0]),
@@ -183,214 +185,88 @@ class SpotEnv(gym.Env):
 
         return obs
 
-    def reset(self, seed=None):
-        self.bidder.restart()
-
-        self._current_step = 0
-        self.t_int = 0
-
-        self.sd_cap = [np.linspace(0.1, 0, self.t_max, dtype=np.float64),
-                       np.linspace(0.15, 0, self.t_max, dtype=np.float64),
-                       np.linspace(0.2, 0, self.t_max, dtype=np.float64),
-                       np.linspace(0.25, 0, self.t_max, dtype=np.float64),
-                       np.linspace(self.bidder.sd_cap_start, 0, self.t_max, dtype=np.float64)]
-
-        self.bidder_DA_cap = [np.random.normal(loc=self.cap_mean, scale=self.sd_cap[-1][self.t_int] * self.cap_mean)]
-
-        data_ob = {
-            "bid_flag": [],
-            "price": [],
-            "volume": [],
-            "participant": [],
-            "timestamp": []
-        }
-        self.df_order_book = pd.DataFrame(data_ob)
-        self.df_order_book = self.df_order_book.astype({
-            'bid_flag': 'int64',
-            'price': 'float64',
-            'volume': 'float64',
-            'participant': 'int64',
-            'timestamp': 'int64'
-        })
-
-        self.top_bid_prices = []
-        self.top_ask_prices = []
-        self.equilibrium_price_estimate_list = []
-        self.volatilities = [0]
-        self.transaction_prices = []
-        self.last_event = None
-        self.last_price = 0
-
-        data_bidders = {
-            "x_bought": [0] * self.N,
-            "x_sold": [0] * self.N,
-            "x_da": [0] * self.N,
-            "x_imb": [0] * self.N,
-            "x_prod": [0] * self.N,
-            "x_cap": [0] * (self.N - 1) + self.bidder_DA_cap,
-            "true_costs": self.other_costs + self.bidder_costs,
-            "production_costs": [0] * self.N,
-            "ask_price": [0] * self.N,
-            "bid_price": [0] * self.N,
-            "limit_buy": [0] * self.N,
-            "limit_sell": [0] * self.N,
-            "target_price_param": [1e-5] * self.N,
-            "target_price_param_step_factor": [0.3, 0.4, 0.2, 0.5, 0.6],
-            "aggressiveness_buy": [0] * self.N,
-            "aggressiveness_sell": [0] * self.N,
-            "aggressiveness_step_factor": [0.3, 0.4, 0.2, 0.5, 0.6],
-            "bid_step_factor": [3] * self.N,
-            "revenue": [0] * self.N
-        }
-
-        self.df_bidders = pd.DataFrame(data_bidders)
-
-        # Assign dtype to specific columns
-        self.df_bidders = self.df_bidders.astype({
-            'x_bought': 'float64',
-            'x_sold': 'float64',
-            'x_da': 'float64',
-            'x_imb': 'float64',
-            'x_prod': 'float64',
-            'x_cap': 'float64',
-            'true_costs': 'object',  # Tuple
-            'production_costs': 'float64',
-            "ask_price": 'float64',
-            "bid_price": 'float64',
-            "limit_buy": 'float64',
-            "limit_sell": 'float64',
-            "target_price_param": 'float64',
-            "target_price_param_step_factor": 'float64',
-            "aggressiveness_buy": 'float64',
-            "aggressiveness_sell": 'float64',
-            "aggressiveness_step_factor": 'float64',
-            "bid_step_factor": 'float64',
-            'revenue': 'float64',
-        })
-
-        obs = self.get_obs()
-
-        return obs, {}
-
     def step(self, action):  # action is an array (price, volume)
-        # if self._current_step == 0:
-        #     print(f'\nNew game')
-        #print(f'Current step:   {self._current_step} \nAction:         {action}')
-
-        x_cap = [np.random.normal(
-            loc=self.cap_mean,
-            scale=self.sd_cap[i][self.t_int] * self.cap_mean
-        ) for i in range(self.N)]
-
         done = False
         truncated = False
+
         # Day-ahead auction
         if self._current_step == 0:
+            init_new_round(self)
+            max_sw(self, action)
+            self.t_int += 1
 
-            x, marginal_price, payments, social_welfare = optimize_alloc(action[0], self.other_costs, self.Q,
-                                                                         x_cap[:-1] + [max(0, action[1])])
+        # Aftermarket exploration TODO: not implemented; Status now would overwrite actual DA data
+        #elif self._current_step <= aftermarket_expl:
 
-            payoff = calc_payoff_DA(self.N, payments, x, self.other_costs, self.bidder)
-            bidder_payoff = payoff[-1]
-            bidder_payment = payments[-1]
+            #x_tmp, marginal_price_tmp, payments_tmp, sw = blind_auction(prices_da, residual_load, volumes_da)  #TODO: change to new function max_sw
 
-            for i in range(self.N):
-                self.df_bidders.at[i, 'x_da'] = x[i]
-                self.df_bidders.at[i, 'x_prod'] = x[i]
-                self.df_bidders.at[i, 'revenue'] += payments[i]
-                self.df_bidders.at[i, 'production_costs'] = (
-                            0.5 * self.df_bidders.at[i, "true_costs"][0] * self.df_bidders.at[i, "x_prod"] **
-                            2 + self.df_bidders.at[i, "true_costs"][1] * self.df_bidders.at[i, "x_prod"])
-
-                if i < self.N - 1:
-                    self.df_bidders.at[i, 'x_cap'] = x_cap[i]
-            self.df_bidders['limit_buy'] = marginal_price  # TODO: random parameter. Find good one (maybe zero?)
-            self.df_bidders['limit_sell'] = marginal_price  # TODO: random parameter. Find good one (maybe zero?)
-
-            self.last_price = marginal_price
-            self.transaction_prices.append(marginal_price)
-            self.last_event = 'match'
-
-            # log
-            self.bidder.history_action.append(action)
-            self.bidder.history_payoff.append(bidder_payoff)
-
-        # Aftermarket exploration
-        elif self._current_step <= self.bidder.aftermarket_exploration:
-            x_tmp, marginal_price_tmp, payments_tmp, sw = optimize_alloc(action[0], self.other_costs, self.Q,
-                                                                         x_cap[:-1] + [max(0, action[1])])
-
-            bidder_payment = payments_tmp[-1]
 
         # Intraday auction
         else:
-            bidder_payoff = 0
-            bidder_payment = 0
             while True:
-                player = np.random.randint(0, self.N)
-                # TODO: check price function
-                #self.df_bidders.at[player, 'lambda_hat_int'] = np.random.randint(10, 30)
+                init_new_round(self)
 
-                for i in self.df_bidders.index:
-                    self.df_bidders.at[i, 'x_cap'] = x_cap[i]
-                    self.df_bidders = correct_bidder_state(i, self.df_bidders)
+                player = np.random.randint(0, n)
 
-                self.df_bidders, self.volatilities, equilibrium_price_estimate = calc_prices(self.t_int, self.t_max,
-                                                                 self.transaction_prices, self.last_price,
-                                                                 self.df_bidders, self.df_order_book, self.volatilities,
-                                                                 self.last_event, self.max_price)
+                # TODO: delete to include rl agent
+                if player == n - 1:
+                    break
 
+                # TODO: Double-check this poc
+                calc_prices(self)
 
-
-                if player != self.N - 1:
-                    x_prod, x_imb, new_post = bid_intra_trustful(player, self.df_bidders, self.t_max,
-                                                                 self.t_int)
-                    # log action
-                    self.bidder.history_action.append(None)
-
-                # TODO: delete this block to include rl again
-                elif player == self.N - 1:
-                    new_post = (0, 0, 1, self.t_int)
-                    x_prod = self.df_bidders.at[self.N - 1, 'x_prod']
-                    x_imb = self.df_bidders.at[self.N - 1, 'x_imb']
-
+                if player != n - 1:
+                    new_post = bid_intra_trustful(self, player, action)
                 else:
-                    x_prod, x_imb, new_post = bid_intra_strategic(action, player, self.df_bidders, self.t_int)
-                    # log action
-                    self.bidder.history_action.append(action)
+                    new_post = bid_intra_strategic(self, action, player)
 
-                rev_before_match = self.df_bidders.at[self.N - 1, 'revenue']
+                update_books(self, player, new_post)
 
-                (self.df_order_book, self.df_bidders, self.top_bid_prices, self.top_ask_prices, self.last_event,
-                 self.last_price, self.transaction_prices) = (update_books(self.df_order_book, self.df_bidders, player, new_post, x_prod, x_imb,
-                                     self.top_bid_prices, self.top_ask_prices, self.transaction_prices))
+                self.df_ask_prices.loc[self.t_int] = self.df_bidders['ask_price'].values
+                self.df_bid_prices.loc[self.t_int] = self.df_bidders['bid_price'].values
+                self.df_bid_agg.loc[self.t_int] = self.df_bidders['aggressiveness_buy'].values
+                self.df_ask_agg.loc[self.t_int] = self.df_bidders['aggressiveness_sell'].values
+                self.df_limit_buy.loc[self.t_int] = self.df_bidders['limit_buy'].values
+                self.df_limit_sell.loc[self.t_int] = self.df_bidders['limit_sell'].values
+                self.df_payoffs.loc[self.t_int] = self.df_bidders['payoff'].values
+                self.df_revenues.loc[self.t_int] = self.df_bidders['revenue'].values
+                self.df_expenses.loc[self.t_int] = self.df_bidders['expenses'].values
+                self.df_prod_costs.loc[self.t_int] = self.df_bidders['production_costs'].values
+                self.df_penalty_imbalances.loc[self.t_int] = self.df_bidders['penalty_imbalance'].values
+                self.df_imbalances.loc[self.t_int] = self.df_bidders['x_imb'].values
 
-                fill_eq_list = len(self.top_ask_prices) - len(self.equilibrium_price_estimate_list)
-
-                for _ in range(fill_eq_list):
-                    self.equilibrium_price_estimate_list.append(equilibrium_price_estimate)
-
-                # TODO: Check payoff calculation logic
-                bidder_payment += self.df_bidders.at[self.N - 1, 'revenue'] - rev_before_match
-
-                # log
-                self.bidder.history_payoff.append(bidder_payoff)
                 # Intraday timer
-                #print(f'Current t:  {self.t_int}\n')
                 self.t_int += 1
                 if self.t_int >= self.t_max:
                     truncated = True
                     break
-                if player == self.N - 1:
+                if player == n - 1:
                     break
 
-        # TODO: Make sure imbalance is calculated correctly (e.g. x_prod gets updated to reduce x_imb)
+                #TODO: Breakpoint
+                if self.t_int == 100:
+                    pass
+
+        self.df_game_data.to_csv(f'./csv/{self.timestamp}/game_data.csv', sep=';')
+        self.df_bid_logs.to_csv(f'./csv/{self.timestamp}/bid_logs.csv', sep=';')
+
+        self.df_ask_prices.to_csv(f'./csv/{self.timestamp}/ask_prices.csv', sep=';')
+        self.df_bid_prices.to_csv(f'./csv/{self.timestamp}/bid_prices.csv', sep=';')
+        self.df_bid_agg.to_csv(f'./csv/{self.timestamp}/bid_agg.csv', sep=';')
+        self.df_ask_agg.to_csv(f'./csv/{self.timestamp}/ask_agg.csv', sep=';')
+        self.df_limit_buy.to_csv(f'./csv/{self.timestamp}/limit_buy.csv', sep=';')
+        self.df_limit_sell.to_csv(f'./csv/{self.timestamp}/limit_sell.csv', sep=';')
+        self.df_target_asks.to_csv(f'./csv/{self.timestamp}/target_asks.csv', sep=';')
+        self.df_target_bids.to_csv(f'./csv/{self.timestamp}/target_bids.csv', sep=';')
+        self.df_payoffs.to_csv(f'./csv/{self.timestamp}/payoffs.csv', sep=';')
+        self.df_revenues.to_csv(f'./csv/{self.timestamp}/revenues.csv', sep=';')
+        self.df_expenses.to_csv(f'./csv/{self.timestamp}/expenses.csv', sep=';')
+        self.df_prod_costs.to_csv(f'./csv/{self.timestamp}/prod_costs.csv', sep=';')
+        self.df_penalty_imbalances.to_csv(f'./csv/{self.timestamp}/penalty_imbalances.csv', sep=';')
+        self.df_imbalances.to_csv(f'./csv/{self.timestamp}/imbalances.csv', sep=';')
 
         # Define state and reward
-        imbalance_penalty = (self.t_int / (self.t_max - self.t_int + 1e-5)
-                             * self.df_bidders.at[self.N - 1, 'x_imb'])
-        production_cost = self.df_bidders.at[self.N - 1, 'production_costs']
-        reward = bidder_payment - imbalance_penalty - production_cost
+        reward = self.df_bidders.at[n - 1, 'payoff']
 
         self._current_step += 1
 

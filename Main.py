@@ -72,7 +72,7 @@ def PPO_game(env, callback):
     model_dir = f"./models/ppo_spot_model/{timestamp}/"
 
     # Parallel environments
-    vec_env = make_vec_env(lambda: SpotEnv(t_max=200, n=5, q=1448.4, cap_mean=700), n_envs=1)
+    vec_env = make_vec_env(lambda: SpotEnv(), n_envs=1)
 
     # Train the PPO model
     print(timestamp)
@@ -103,7 +103,8 @@ def SAC_game(env, callback):
     model_dir = f"./models/sac_spot_model/{timestamp}/"
 
     model = SAC("MultiInputPolicy", env, verbose=1, tensorboard_log=log_dir)
-    model.learn(total_timesteps=10000, log_interval=4, progress_bar=True, callback=callback)
+    #model.learn(total_timesteps=10000, log_interval=4, progress_bar=True, callback=callback)
+    model.learn(total_timesteps=10000, log_interval=4, progress_bar=True)
     model.save(model_dir)
 
     #del model  # remove to demonstrate saving and loading
@@ -119,11 +120,11 @@ def SAC_game(env, callback):
 
 
 if __name__ == '__main__':
-    env = SpotEnv(t_max=200, n=5, q=2000, cap_mean=700)
+    env = SpotEnv()
     callback = TensorboardCallback()
     #env = FlattenObservation(env)
-    PPO_game(env, callback)  # TODO: Not learning, maybe missing state? Bad selection of obs?
+    #PPO_game(env, callback)  # TODO: Not learning, maybe missing state? Bad selection of obs?
     #                                Too large obs spaces? Flatten obs? Imbalance penalty too harsh?
-    #SAC_game(env, callback)  # TODO: Same as PPO
+    SAC_game(env, callback)  # TODO: Same as PPO
     #TD3_game(env, callback)  # TODO: Same as SAC
     #DDPG_game(env, callback)  # TODO: Test

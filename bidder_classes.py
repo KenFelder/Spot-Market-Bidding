@@ -5,8 +5,6 @@ from collections import deque
 
 class Bidder:
     def __init__(self, has_seed=False):
-        self.costs = (0.01, 11)
-        self.sd_cap_start = 0.3
         # TODO: up aftermarket exploration to 200
         self.aftermarket_exploration = 1
 

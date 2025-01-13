@@ -1,12 +1,23 @@
 import numpy as np
+import pandas as pd
+from config import *
 
 
-def update_limits(limit_buy, limit_sell, lambda_max, imbalance, imbalance_penalty, step_factor=0.1):
-    if imbalance > 0:
-        limit_sell = (1 - step_factor) * limit_sell + step_factor * min(imbalance_penalty, limit_sell, lambda_max)
-    elif imbalance < 0:
-        limit_buy = (1 - step_factor) * limit_buy + step_factor * max(imbalance_penalty, limit_buy)
-    return limit_buy, limit_sell
+def update_limits(self, player, step_factor=0.1):
+    limit_sell = self.df_bidders.at[player, 'limit_sell']
+    limit_buy = self.df_bidders.at[player, 'limit_buy']
+    imbalance_penalty_price = self.df_game_data.at[self.t_int, 'imbalance_penalty_factor']
+
+    if self.df_bidders.at[player, 'x_imb'] > 0:
+        #TODO won't ever rise, because limit_sell doesn't change
+        limit_sell = (1 - step_factor) * limit_sell + step_factor * min(imbalance_penalty_price, limit_sell, max_price)
+    elif self.df_bidders.at[player, 'x_imb'] < 0:
+        limit_buy = (1 - step_factor) * limit_buy + step_factor * max(imbalance_penalty_price, limit_buy)
+
+    self.df_bidders.at[player, 'limit_sell'] = limit_sell
+    self.df_bidders.at[player, 'limit_buy'] = limit_buy
+
+    return
 
 
 def comp_price_estimate(transaction_prices, k_max=5):
@@ -19,43 +30,43 @@ def update_aggressiveness(aggressiveness, target_aggressiveness, step_factor):
     aggressiveness = aggressiveness + step_factor * (target_aggressiveness - aggressiveness)
     return aggressiveness
 
+def update_target_aggressiveness_buy(lambda_hat, limit_buy, best_target_price_buy, target_price_param, aggressiveness_buy, delta_r=0.02, delta_a=0.01):
+    if lambda_hat > limit_buy:
+        #Extra-marginal buyer
+        if best_target_price_buy >= limit_buy:
+            target_bid_aggressiveness = aggressiveness_buy if aggressiveness_buy > 0 else 0
+        else:
+            target_bid_aggressiveness = -np.log(1 + (1 - best_target_price_buy / limit_buy) * (np.exp(target_price_param) - 1)) / target_price_param
+    else:
+        #Intra-marginal buyer
+        if best_target_price_buy >= limit_buy:
+            target_bid_aggressiveness = aggressiveness_buy if aggressiveness_buy > 0 else 0
+        elif best_target_price_buy == lambda_hat:
+            target_bid_aggressiveness = 0
+        elif best_target_price_buy > lambda_hat:
+            target_bid_aggressiveness = np.log((best_target_price_buy - lambda_hat) * (np.exp(target_price_param) - 1) / (limit_buy - lambda_hat) + 1) / target_price_param
+        else:
+            target_bid_aggressiveness = -np.log((1 - best_target_price_buy / lambda_hat) * (np.exp(target_price_param) - 1) + 1) / target_price_param
+    return target_bid_aggressiveness
 
-def update_target_aggressiveness_buy(lambda_hat, limit_buy, last_target_price_buy, target_price_param, delta_r=0.02, delta_a=0.01):
-    # when target_price_param = 0 -> log(0) is undefined
-    if lambda_hat == last_target_price_buy <= limit_buy:
-        target_bid_aggressiveness = 0
-    elif lambda_hat <= last_target_price_buy < limit_buy:
-        target_bid_aggressiveness = np.log((last_target_price_buy - lambda_hat) * (np.exp(target_price_param) - 1) /
-                                           (limit_buy - lambda_hat) + 1) / target_price_param
-    elif 0 <= last_target_price_buy < lambda_hat:
-        target_bid_aggressiveness = -np.log((1 - last_target_price_buy / lambda_hat) * (np.exp(target_price_param) - 1) +
-                                            1) / target_price_param
-    elif 0 <= last_target_price_buy < limit_buy:
-        target_bid_aggressiveness = -np.log((1 - last_target_price_buy / limit_buy) * (np.exp(target_price_param) - 1) +
-                                            1) / target_price_param
-    elif limit_buy <= last_target_price_buy:
-        target_bid_aggressiveness = 1
-    t_agg_bid = (1 + delta_r) * target_bid_aggressiveness + delta_a
-    return t_agg_bid
-
-
-def update_target_aggressiveness_sell(lambda_hat, limit_sell, last_target_price_sell, target_price_param, max_price, delta_r=0.02, delta_a=0.01):
-    if lambda_hat == last_target_price_sell >= limit_sell:
-        target_ask_aggressiveness = 0
-    elif lambda_hat < last_target_price_sell <= max_price:
-        target_ask_aggressiveness = -np.log((last_target_price_sell - lambda_hat) * (np.exp(target_price_param) - 1) /
-                                            (max_price - lambda_hat) + 1) / target_price_param
-    elif limit_sell < last_target_price_sell < lambda_hat:
-        target_ask_aggressiveness = np.log((1 - (last_target_price_sell - limit_sell) / (lambda_hat - limit_sell)) *
-                                            (np.exp(target_price_param) - 1) + 1) / target_price_param
-    elif limit_sell < last_target_price_sell < max_price:
-        target_ask_aggressiveness = -np.log((last_target_price_sell - limit_sell) / (max_price - 1) *
-                                            (np.exp(target_price_param) - 1) + 1) / target_price_param
-    elif last_target_price_sell <= limit_sell:
-        target_ask_aggressiveness = 1
-    t_agg_ask = (1 + delta_r) * target_ask_aggressiveness + delta_a
-    return t_agg_ask
-
+def update_target_aggressiveness_sell(lambda_hat, limit_sell, best_target_price_sell, target_price_param, max_price, aggressiveness_sell, delta_r=0.02, delta_a=0.01):
+    if lambda_hat < limit_sell:
+        #Extra-marginal seller
+        if best_target_price_sell <= limit_sell:
+            target_ask_aggressiveness = aggressiveness_sell if aggressiveness_sell > 0 else 0
+        else:
+            target_ask_aggressiveness = -np.log((best_target_price_sell - limit_sell) / (max_price - limit_sell) * (np.exp(target_price_param) - 1) + 1) / target_price_param
+    else:
+        #Intra-marginal seller
+        if best_target_price_sell <= limit_sell:
+            target_ask_aggressiveness = aggressiveness_sell if aggressiveness_sell > 0 else 0
+        elif best_target_price_sell == lambda_hat:
+            target_ask_aggressiveness = 0
+        elif best_target_price_sell < lambda_hat:
+            target_ask_aggressiveness = np.log((1 - (best_target_price_sell - limit_sell) / (lambda_hat - limit_sell)) * (np.exp(target_price_param) - 1) + 1) / target_price_param
+        else:
+            target_ask_aggressiveness = -np.log((best_target_price_sell - lambda_hat) * (np.exp(target_price_param) - 1) / (max_price - lambda_hat) + 1) / target_price_param
+    return target_ask_aggressiveness
 
 def update_target_price_param(target_price_param, target_price_param_scaled, step_factor):
     target_price_param = target_price_param + step_factor * (target_price_param_scaled - target_price_param)
@@ -78,9 +89,9 @@ def scale_volatility(volatility, volatility_max, volatility_min):
     return (volatility - volatility_min) / (volatility_max - volatility_min)
 
 
-def calc_volatility(transaction_prices, lambda_hat, n_max=5):
-    n = min(len(transaction_prices), n_max)
-    volatility = np.sqrt(1/n * np.sum([transaction_prices[i] - lambda_hat for i in range(n)]) ** 2) / lambda_hat
+def calc_volatility(transaction_prices, lambda_hat, i_max=5):
+    i = min(len(transaction_prices), i_max)
+    volatility = np.sqrt(1/i * np.sum([transaction_prices[j] - lambda_hat for j in range(i)]) ** 2) / lambda_hat
     return volatility
 
 
@@ -100,8 +111,8 @@ def calc_target_price(lambda_hat, lambda_max, limit_buy, limit_sell, aggressiven
         if aggressiveness_buy >= 0:
             target_price_buy = limit_buy
         else:
-            target_price_buy = limit_buy * (1 - (np.exp(-aggressiveness_buy * target_price_param)-1) /
-                                            (np.exp(target_price_param)-1))
+            target_price_buy = limit_buy * (1 - ((np.exp(-aggressiveness_buy * target_price_param)-1) /
+                                            (np.exp(target_price_param)-1)))
 
     # Sell side
     # Intra-marginal seller
@@ -125,77 +136,76 @@ def calc_target_price(lambda_hat, lambda_max, limit_buy, limit_sell, aggressiven
     return target_price_buy, target_price_sell
 
 
-def calc_prices(t, t_l, transaction_prices, last_price, df_bidders, df_order_book, volatilities, last_event,
-               lambda_max):
+def calc_prices(self):
+    transaction_prices = self.df_game_data['transaction_price'].dropna().tolist()
     equilibrium_price_estimate = comp_price_estimate(transaction_prices)
+    last_price = self.df_game_data['last_price'].dropna().iloc[-1]
+    last_event = self.df_game_data['last_event'].dropna().iloc[-1]
+    volatilities = self.df_game_data['volatility'].dropna().tolist()
 
-    for bidder in df_bidders.index:
+    for player in self.df_bidders.index:
+        update_limits(self, player)
         # initialize values
-        limit_buy = df_bidders.at[bidder, 'limit_buy']
-        limit_sell = df_bidders.at[bidder, 'limit_sell']
-        imbalance = df_bidders.at[bidder, 'x_imb']
-        target_price_param = df_bidders.at[bidder, 'target_price_param']
-        target_price_param_step_factor = df_bidders.at[bidder, 'target_price_param_step_factor']
-        aggressiveness_buy = df_bidders.at[bidder, 'aggressiveness_buy']
-        aggressiveness_sell = df_bidders.at[bidder, 'aggressiveness_sell']
-        aggressiveness_step_factor = df_bidders.at[bidder, 'aggressiveness_step_factor']
-        bid_step_factor = df_bidders.at[bidder, 'bid_step_factor']
+        limit_buy = self.df_bidders.at[player, 'limit_buy']
+        limit_sell = self.df_bidders.at[player, 'limit_sell']
+        target_price_param = self.df_bidders.at[player, 'target_price_param']
+        target_price_param_step_factor = self.df_bidders.at[player, 'target_price_param_step_factor']
+        aggressiveness_buy = self.df_bidders.at[player, 'aggressiveness_buy']
+        aggressiveness_sell = self.df_bidders.at[player, 'aggressiveness_sell']
+        aggressiveness_step_factor = self.df_bidders.at[player, 'aggressiveness_step_factor']
+        bid_step_factor = self.df_bidders.at[player, 'bid_step_factor']
 
-        imbalance_penalty = t / (t_l - t + 1e-5) * np.abs(imbalance)
+        len_bids = len(self.df_order_book[self.df_order_book["bid_flag"] == 1])
+        len_asks = len(self.df_order_book[self.df_order_book["bid_flag"] == 0])
 
-        limit_buy, limit_sell = update_limits(limit_buy, limit_sell, lambda_max, imbalance, imbalance_penalty)
+        top_ask_price = self.df_order_book[self.df_order_book["bid_flag"] == 0].iloc[-1]["price"] if len_asks > 0 else None
+        top_bid_price = self.df_order_book[self.df_order_book["bid_flag"] == 1].iloc[0]["price"] if len_bids > 0 else None
+
 
         volatility = calc_volatility(transaction_prices, equilibrium_price_estimate)
-
-        if volatility != 0:
-            volatility = volatility
-
-        target_price_buy, target_price_sell = calc_target_price(equilibrium_price_estimate, lambda_max, limit_buy, limit_sell,
-                                                                aggressiveness_buy, aggressiveness_sell, target_price_param)
 
         if last_event == 'match':
             volatility_scaled = scale_volatility(volatility, max(volatilities), min(volatilities))
             target_price_param_scaled = scale_target_price_param(volatility_scaled)
             target_price_param = update_target_price_param(target_price_param, target_price_param_scaled,
                                                            target_price_param_step_factor)
-            t_agg_buy = update_target_aggressiveness_buy(equilibrium_price_estimate, limit_buy, last_price, target_price_param)
+            t_agg_buy = update_target_aggressiveness_buy(equilibrium_price_estimate, limit_buy, last_price, target_price_param, aggressiveness_buy)
             t_agg_sell = update_target_aggressiveness_sell(equilibrium_price_estimate, limit_sell, last_price, target_price_param,
-                                                           lambda_max)
+                                                           max_price, aggressiveness_sell)
             aggressiveness_buy = update_aggressiveness(aggressiveness_buy, t_agg_buy, aggressiveness_step_factor)
             aggressiveness_sell = update_aggressiveness(aggressiveness_sell, t_agg_sell, aggressiveness_step_factor)
-        elif last_event == 'bid' and target_price_buy <= last_price:
-            t_agg_buy = update_target_aggressiveness_buy(equilibrium_price_estimate, limit_buy, last_price, target_price_param)
+        elif last_event == 'bid':
+            t_agg_buy = update_target_aggressiveness_buy(equilibrium_price_estimate, limit_buy, top_bid_price, target_price_param, aggressiveness_buy)
+            t_agg_buy = t_agg_buy if t_agg_buy > aggressiveness_buy else aggressiveness_buy
             aggressiveness_buy = update_aggressiveness(aggressiveness_buy, t_agg_buy, aggressiveness_step_factor)
-        elif last_event == 'ask' and target_price_sell >= last_price:
-            t_agg_sell = update_target_aggressiveness_sell(equilibrium_price_estimate, limit_sell, last_price, target_price_param,
-                                                           lambda_max)
+        elif last_event == 'ask':
+            t_agg_sell = update_target_aggressiveness_sell(equilibrium_price_estimate, limit_sell, top_ask_price, target_price_param,
+                                                           max_price, aggressiveness_sell)
+            t_agg_sell = t_agg_sell if t_agg_sell > aggressiveness_sell else aggressiveness_sell
             aggressiveness_sell = update_aggressiveness(aggressiveness_sell, t_agg_sell, aggressiveness_step_factor)
 
-        target_price_buy, target_price_sell = calc_target_price(equilibrium_price_estimate, lambda_max, limit_buy, limit_sell,
+        target_price_buy, target_price_sell = calc_target_price(equilibrium_price_estimate, max_price, limit_buy, limit_sell,
                                                                 aggressiveness_buy, aggressiveness_sell, target_price_param)
 
-        len_bids = len(df_order_book[df_order_book["bid_flag"] == 1])
-        len_asks = len(df_order_book[df_order_book["bid_flag"] == 0])
-        if len_asks > 0:
-            best_ask_price = df_order_book[df_order_book["bid_flag"] == 0].iloc[-1]["price"]
-        else:
-            best_ask_price = equilibrium_price_estimate  # TODO: Think this through
-        if len_bids > 0:
-            best_bid_price = df_order_book[df_order_book["bid_flag"] == 1].iloc[0]["price"]
-        else:
-            best_bid_price = equilibrium_price_estimate  # TODO: Think this through
+        top_ask_price = self.df_order_book[self.df_order_book["bid_flag"] == 0].iloc[-1]["price"] if len_asks > 0 else target_price_sell
+        top_bid_price = self.df_order_book[self.df_order_book["bid_flag"] == 1].iloc[0]["price"] if len_bids > 0 else target_price_buy
 
-        ask_price = best_ask_price - (best_ask_price - target_price_sell) / bid_step_factor
-        bid_price = best_bid_price + (target_price_buy - best_bid_price) / bid_step_factor
+        ask_price = top_ask_price - (top_ask_price - target_price_sell) / bid_step_factor
+        bid_price = top_bid_price + (target_price_buy - top_bid_price) / bid_step_factor
 
         # save updated values
-        df_bidders.at[bidder, 'limit_buy'] = limit_buy
-        df_bidders.at[bidder, 'limit_sell'] = limit_sell
-        df_bidders.at[bidder, 'target_price_param'] = target_price_param
-        df_bidders.at[bidder, 'aggressiveness_buy'] = aggressiveness_buy
-        df_bidders.at[bidder, 'aggressiveness_sell'] = aggressiveness_sell
-        df_bidders.at[bidder, 'bid_price'] = bid_price
-        df_bidders.at[bidder, 'ask_price'] = ask_price
-    volatilities.append(volatility)
+        self.df_bidders.at[player, 'target_price_param'] = target_price_param
+        self.df_bidders.at[player, 'aggressiveness_buy'] = aggressiveness_buy
+        self.df_bidders.at[player, 'aggressiveness_sell'] = aggressiveness_sell
+        self.df_bidders.at[player, 'bid_price'] = bid_price
+        self.df_bidders.at[player, 'ask_price'] = ask_price
 
-    return df_bidders, volatilities, equilibrium_price_estimate
+        self.df_target_bids.at[self.t_int, f'bidder_{player}'] = target_price_buy
+        self.df_target_asks.at[self.t_int, f'bidder_{player}'] = target_price_sell
+
+    # Log game data
+    self.df_game_data.at[self.t_int, 'volatility'] = volatility
+    self.df_game_data.at[self.t_int, 'equilibrium_price_estimate'] = equilibrium_price_estimate
+    self.df_game_data.at[self.t_int, 'market'] = 'ID'
+
+    return
