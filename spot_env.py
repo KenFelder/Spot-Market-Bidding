@@ -13,7 +13,7 @@ from bidder_classes import Bidder
 from price_calc import *
 from config import *
 
-# TODO: Check Bid/Ask integrity
+
 class SpotEnv(gym.Env):
     def __init__(self):
         #### Steps
