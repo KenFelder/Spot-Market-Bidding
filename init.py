@@ -109,7 +109,7 @@ def init_bidders(self):
         'payoff': [0] * n,
         'ask_price': [0] * n,
         'bid_price': [0] * n,
-        'limit_buy': [0] * n,
+        'limit_buy': true_costs,
         'limit_sell': [0] * n,
         'target_price_param': start_target_price_param,
         'target_price_param_step_factor': target_price_param_step_factor,
