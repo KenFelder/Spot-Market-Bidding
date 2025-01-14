@@ -24,7 +24,7 @@ start_aggressiveness_ask = [random.uniform(-1, 0) for i in range(6)]
 start_aggressiveness_bid = [random.uniform(-1, 0) for i in range(6)]
 aggressiveness_step_factor = [random.uniform(0.1, 2) for i in range(6)]
 
-start_target_price_param = [0.5, 0.5, 0.5, 0.5, 0.5, 0.5]  # Start point for target price parameter
+start_target_price_param = [-4, -4, -4, -4, -4, -4]  # Start point for target price parameter
 target_price_param_step_factor = [0.9, 0.3, 0.4, 0.2, 0.5, 0.0]  # Step factor for target price parameter
 
 bid_step_factor = [3, 3, 3, 3, 3, 3]  # Bid step factor
