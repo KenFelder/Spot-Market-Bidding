@@ -167,8 +167,8 @@ def calc_prices(self):
         if last_event == 'match':
             volatility_scaled = scale_volatility(volatility, max(volatilities), min(volatilities))
             target_price_param_scaled = scale_target_price_param(volatility_scaled)
-            target_price_param = update_target_price_param(target_price_param, target_price_param_scaled,
-                                                           target_price_param_step_factor)
+            if len(transaction_prices) >= 5:
+                target_price_param = update_target_price_param(target_price_param, target_price_param_scaled, target_price_param_step_factor)
             t_agg_buy = update_target_aggressiveness_buy(equilibrium_price_estimate, limit_buy, last_price, target_price_param, aggressiveness_buy)
             t_agg_sell = update_target_aggressiveness_sell(equilibrium_price_estimate, limit_sell, last_price, target_price_param,
                                                            max_price, aggressiveness_sell)
