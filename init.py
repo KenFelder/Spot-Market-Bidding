@@ -152,3 +152,32 @@ def init_bidders(self):
         'bid_step_factor': 'float64',
     })
     return self.df_bidders
+
+def init_logs(self):
+    self.df_game_data = init_game_data(self)
+    self.df_bid_logs = init_bid_logs(self)
+
+    self.df_x_demand = pd.DataFrame(columns=[f'bidder_{i}' for i in range(n)])
+    self.df_x_bought = pd.DataFrame(columns=[f'bidder_{i}' for i in range(n)])
+    self.df_x_sold = pd.DataFrame(columns=[f'bidder_{i}' for i in range(n)])
+    self.df_imbalances = pd.DataFrame(columns=[f'bidder_{i}' for i in range(n)])
+    self.df_x_re_cap = pd.DataFrame(columns=[f'bidder_{i}' for i in range(n)])
+    self.df_x_re_gen = pd.DataFrame(columns=[f'bidder_{i}' for i in range(n)])
+    self.df_x_th_gen = pd.DataFrame(columns=[f'bidder_{i}' for i in range(n)])
+
+    self.df_ask_prices = pd.DataFrame(columns=[f'bidder_{i}' for i in range(n)])
+    self.df_bid_prices = pd.DataFrame(columns=[f'bidder_{i}' for i in range(n)])
+    self.df_bid_agg = pd.DataFrame(columns=[f'bidder_{i}' for i in range(n)])
+    self.df_ask_agg = pd.DataFrame(columns=[f'bidder_{i}' for i in range(n)])
+    self.df_limit_buy = pd.DataFrame(columns=[f'bidder_{i}' for i in range(n)])
+    self.df_limit_sell = pd.DataFrame(columns=[f'bidder_{i}' for i in range(n)])
+    self.df_target_asks = pd.DataFrame(columns=[f'bidder_{i}' for i in range(n)])
+    self.df_target_bids = pd.DataFrame(columns=[f'bidder_{i}' for i in range(n)])
+    self.df_target_price_param = pd.DataFrame(columns=[f'bidder_{i}' for i in range(n)])
+
+    self.df_market_positions = pd.DataFrame(columns=[f'bidder_{i}' for i in range(n)])
+    self.df_payoffs = pd.DataFrame(columns=[f'bidder_{i}' for i in range(n)])
+    self.df_revenues = pd.DataFrame(columns=[f'bidder_{i}' for i in range(n)])
+    self.df_expenses = pd.DataFrame(columns=[f'bidder_{i}' for i in range(n)])
+    self.df_prod_costs = pd.DataFrame(columns=[f'bidder_{i}' for i in range(n)])
+    self.df_penalty_imbalances = pd.DataFrame(columns=[f'bidder_{i}' for i in range(n)])
