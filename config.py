@@ -18,7 +18,7 @@ x_th_cap = [0, 500, 500, 500, 500, 500]  # Thermal capacity
 ## Intraday ##
 start_aggressiveness_bid = [-0.6, 0.4, 0.7, -0.1, -0.1, -0.1]  # Start point for aggressiveness of bids
 start_aggressiveness_ask = [-0.2, -0.1, -0.1, -0.1, -0.1, -0.1]  # Start point for aggressiveness of asks
-aggressiveness_step_factor = [2, 1.8, 1.5, 1.9, 1.9, 0.0]  # Sep factor for aggressiveness
+aggressiveness_step_factor = [2, 1.8, 1.5, 1.9, 1.9, 0.0]  # Step factor for aggressiveness
 
 start_aggressiveness_ask = [random.uniform(-1, 0) for i in range(6)]
 start_aggressiveness_bid = [random.uniform(-1, 0) for i in range(6)]
