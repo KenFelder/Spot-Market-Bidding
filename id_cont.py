@@ -73,8 +73,8 @@ def bid_intra_trustful(self, player):
         x_th_gen <= x_th_cap,
         cp.abs(x_th_gen - x_th_start) <= max((1 - self.t_int / (t_max * 0.9)) * x_th_cap, 0),
         # TODO: decide if re must be fed-in; if changed also change in update_production
-        x_re_gen == x_re_cap,
-        #x_re_gen <= x_re_cap,
+        #x_re_gen == x_re_cap,
+        x_re_gen <= x_re_cap,
         x_sell_int <= max_ask_volume * (1 - bid_flag),
         x_buy_int <= max_bid_volume * bid_flag,
     ]
