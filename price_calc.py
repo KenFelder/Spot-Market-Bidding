@@ -174,11 +174,11 @@ def calc_prices(self):
                                                            max_price, aggressiveness_sell)
             aggressiveness_buy = update_aggressiveness(aggressiveness_buy, t_agg_buy, aggressiveness_step_factor)
             aggressiveness_sell = update_aggressiveness(aggressiveness_sell, t_agg_sell, aggressiveness_step_factor)
-        elif last_event == 'bid':
+        elif last_event == 'bid' and len_bids > 0:
             t_agg_buy = update_target_aggressiveness_buy(equilibrium_price_estimate, limit_buy, top_bid_price, target_price_param, aggressiveness_buy)
             t_agg_buy = t_agg_buy if t_agg_buy > aggressiveness_buy else aggressiveness_buy
             aggressiveness_buy = update_aggressiveness(aggressiveness_buy, t_agg_buy, aggressiveness_step_factor)
-        elif last_event == 'ask':
+        elif last_event == 'ask' and len_asks > 0:
             t_agg_sell = update_target_aggressiveness_sell(equilibrium_price_estimate, limit_sell, top_ask_price, target_price_param,
                                                            max_price, aggressiveness_sell)
             t_agg_sell = t_agg_sell if t_agg_sell > aggressiveness_sell else aggressiveness_sell
