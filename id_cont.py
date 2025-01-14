@@ -168,21 +168,21 @@ def update_books(self, player, new_post):
             last_event = 'match'
             transaction_prices.append(price)
 
-    self.df_game_data.at[self.t_int, 'transaction_price'] = transaction_prices[-1] if last_event == 'match' else None
-    self.df_game_data.at[self.t_int, 'last_event'] = last_event
-    self.df_game_data.at[self.t_int, 'last_price'] = lambda_hat_int
-
-    self.df_bid_logs.at[self.t_int, 'match_flag'] = last_event
-    self.df_bid_logs.at[self.t_int, 'transaction_price'] = new_volume
-    self.df_bid_logs.at[self.t_int, 'price'] = lambda_hat_int
-    self.df_bid_logs.at[self.t_int, 'volume'] = new_volume
-    self.df_bid_logs.at[self.t_int, 'bidder'] = player
-
     # Remove rows where volume reaches 0.1
     self.df_order_book = self.df_order_book[self.df_order_book["volume"] >= 0.1]
 
     self.df_order_book = self.df_order_book.sort_values(by="price", ascending=False)
     self.df_order_book = self.df_order_book.reset_index(drop=True)
+
+    self.df_game_data.at[self.t_int, 'transaction_price'] = transaction_prices[-1] if last_event == 'match' else None
+    self.df_game_data.at[self.t_int, 'last_event'] = last_event
+    self.df_game_data.at[self.t_int, 'last_price'] = lambda_hat_int
+
+    self.df_bid_logs.at[self.t_int, 'match_flag'] = last_event
+    self.df_bid_logs.at[self.t_int, 'transaction_price'] = transaction_prices[-1] if last_event == 'match' else None
+    self.df_bid_logs.at[self.t_int, 'price'] = lambda_hat_int
+    self.df_bid_logs.at[self.t_int, 'volume'] = new_volume
+    self.df_bid_logs.at[self.t_int, 'bidder'] = player
 
     update_production(self)
 
