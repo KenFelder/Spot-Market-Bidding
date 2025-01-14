@@ -91,7 +91,7 @@ def scale_volatility(volatility, volatility_max, volatility_min):
 
 def calc_volatility(transaction_prices, lambda_hat, i_max=5):
     i = min(len(transaction_prices), i_max)
-    volatility = np.sqrt(1/i * np.sum([transaction_prices[j] - lambda_hat for j in range(i)]) ** 2) / lambda_hat
+    volatility = np.sqrt(1/i * np.sum([(transaction_prices[-j] - lambda_hat) ** 2 for j in range(i)])) / lambda_hat
     return volatility
 
 
