@@ -165,7 +165,7 @@ def calc_prices(self):
 
         volatility = calc_volatility(transaction_prices, equilibrium_price_estimate)
 
-        if last_event == 'match':
+        if last_event == 'match' and self.t_int > 1:
             volatility_scaled = scale_volatility(volatility, max(volatilities), min(volatilities))
             target_price_param_scaled = scale_target_price_param(volatility_scaled)
             if len(transaction_prices) >= 5:
