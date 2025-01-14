@@ -47,6 +47,7 @@ class SpotEnv(gym.Env):
         self.df_limit_sell = pd.DataFrame(columns=[f'bidder_{i}' for i in range(n)])
         self.df_target_asks = pd.DataFrame(columns=[f'bidder_{i}' for i in range(n)])
         self.df_target_bids = pd.DataFrame(columns=[f'bidder_{i}' for i in range(n)])
+        self.df_target_price_param = pd.DataFrame(columns=[f'bidder_{i}' for i in range(n)])
         self.df_payoffs = pd.DataFrame(columns=[f'bidder_{i}' for i in range(n)])
         self.df_revenues = pd.DataFrame(columns=[f'bidder_{i}' for i in range(n)])
         self.df_expenses = pd.DataFrame(columns=[f'bidder_{i}' for i in range(n)])
@@ -122,6 +123,7 @@ class SpotEnv(gym.Env):
         self.df_limit_sell = pd.DataFrame(columns=[f'bidder_{i}' for i in range(n)])
         self.df_target_asks = pd.DataFrame(columns=[f'bidder_{i}' for i in range(n)])
         self.df_target_bids = pd.DataFrame(columns=[f'bidder_{i}' for i in range(n)])
+        self.df_target_price_param = pd.DataFrame(columns=[f'bidder_{i}' for i in range(n)])
         self.df_payoffs = pd.DataFrame(columns=[f'bidder_{i}' for i in range(n)])
         self.df_revenues = pd.DataFrame(columns=[f'bidder_{i}' for i in range(n)])
         self.df_expenses = pd.DataFrame(columns=[f'bidder_{i}' for i in range(n)])
@@ -226,6 +228,7 @@ class SpotEnv(gym.Env):
                 self.df_bid_prices.loc[self.t_int] = self.df_bidders['bid_price'].values
                 self.df_bid_agg.loc[self.t_int] = self.df_bidders['aggressiveness_buy'].values
                 self.df_ask_agg.loc[self.t_int] = self.df_bidders['aggressiveness_sell'].values
+                self.df_target_price_param.loc[self.t_int] = self.df_bidders['target_price_param'].values
                 self.df_limit_buy.loc[self.t_int] = self.df_bidders['limit_buy'].values
                 self.df_limit_sell.loc[self.t_int] = self.df_bidders['limit_sell'].values
                 self.df_payoffs.loc[self.t_int] = self.df_bidders['payoff'].values
@@ -254,6 +257,7 @@ class SpotEnv(gym.Env):
         self.df_bid_prices.to_csv(f'./csv/{self.timestamp}/bid_prices.csv', sep=';')
         self.df_bid_agg.to_csv(f'./csv/{self.timestamp}/bid_agg.csv', sep=';')
         self.df_ask_agg.to_csv(f'./csv/{self.timestamp}/ask_agg.csv', sep=';')
+        self.df_target_price_param.to_csv(f'./csv/{self.timestamp}/target_price_param.csv', sep=';')
         self.df_limit_buy.to_csv(f'./csv/{self.timestamp}/limit_buy.csv', sep=';')
         self.df_limit_sell.to_csv(f'./csv/{self.timestamp}/limit_sell.csv', sep=';')
         self.df_target_asks.to_csv(f'./csv/{self.timestamp}/target_asks.csv', sep=';')
