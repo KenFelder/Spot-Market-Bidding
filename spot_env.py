@@ -1,15 +1,10 @@
 import os
 from datetime import datetime
-import numpy as np
 import gymnasium as gym
 from gymnasium import spaces
-import pandas as pd
-import pickle
 from init import *
-from utils import *
 from DA_Auction import *
 from id_cont import *
-from bidder_classes import Bidder
 from price_calc import *
 from config import *
 
@@ -36,8 +31,6 @@ class SpotEnv(gym.Env):
         ## Log ID
         self.df_game_data = init_game_data(self)
         self.df_bid_logs = init_bid_logs(self)
-        self.marginal_price = None
-        self.imbalance_penalty_factor = None
 
         self.df_ask_prices = pd.DataFrame(columns=[f'bidder_{i}' for i in range(n)])
         self.df_bid_prices = pd.DataFrame(columns=[f'bidder_{i}' for i in range(n)])
@@ -48,6 +41,8 @@ class SpotEnv(gym.Env):
         self.df_target_asks = pd.DataFrame(columns=[f'bidder_{i}' for i in range(n)])
         self.df_target_bids = pd.DataFrame(columns=[f'bidder_{i}' for i in range(n)])
         self.df_target_price_param = pd.DataFrame(columns=[f'bidder_{i}' for i in range(n)])
+
+        self.df_market_positions = pd.DataFrame(columns=[f'bidder_{i}' for i in range(n)])
         self.df_payoffs = pd.DataFrame(columns=[f'bidder_{i}' for i in range(n)])
         self.df_revenues = pd.DataFrame(columns=[f'bidder_{i}' for i in range(n)])
         self.df_expenses = pd.DataFrame(columns=[f'bidder_{i}' for i in range(n)])
@@ -112,8 +107,6 @@ class SpotEnv(gym.Env):
         ## Log ID
         self.df_game_data = init_game_data(self)
         self.df_bid_logs = init_bid_logs(self)
-        self.marginal_price = None
-        self.imbalance_penalty_factor = None
 
         self.df_ask_prices = pd.DataFrame(columns=[f'bidder_{i}' for i in range(n)])
         self.df_bid_prices = pd.DataFrame(columns=[f'bidder_{i}' for i in range(n)])
@@ -124,6 +117,8 @@ class SpotEnv(gym.Env):
         self.df_target_asks = pd.DataFrame(columns=[f'bidder_{i}' for i in range(n)])
         self.df_target_bids = pd.DataFrame(columns=[f'bidder_{i}' for i in range(n)])
         self.df_target_price_param = pd.DataFrame(columns=[f'bidder_{i}' for i in range(n)])
+
+        self.df_market_positions = pd.DataFrame(columns=[f'bidder_{i}' for i in range(n)])
         self.df_payoffs = pd.DataFrame(columns=[f'bidder_{i}' for i in range(n)])
         self.df_revenues = pd.DataFrame(columns=[f'bidder_{i}' for i in range(n)])
         self.df_expenses = pd.DataFrame(columns=[f'bidder_{i}' for i in range(n)])
@@ -231,6 +226,8 @@ class SpotEnv(gym.Env):
                 self.df_target_price_param.loc[self.t_int] = self.df_bidders['target_price_param'].values
                 self.df_limit_buy.loc[self.t_int] = self.df_bidders['limit_buy'].values
                 self.df_limit_sell.loc[self.t_int] = self.df_bidders['limit_sell'].values
+
+                self.df_market_positions.loc[self.t_int] = self.df_bidders['market_position'].values
                 self.df_payoffs.loc[self.t_int] = self.df_bidders['payoff'].values
                 self.df_revenues.loc[self.t_int] = self.df_bidders['revenue'].values
                 self.df_expenses.loc[self.t_int] = self.df_bidders['expenses'].values
@@ -262,6 +259,8 @@ class SpotEnv(gym.Env):
         self.df_limit_sell.to_csv(f'./csv/{self.timestamp}/limit_sell.csv', sep=';')
         self.df_target_asks.to_csv(f'./csv/{self.timestamp}/target_asks.csv', sep=';')
         self.df_target_bids.to_csv(f'./csv/{self.timestamp}/target_bids.csv', sep=';')
+
+        self.df_market_positions.to_csv(f'./csv/{self.timestamp}/market_positions.csv', sep=';')
         self.df_payoffs.to_csv(f'./csv/{self.timestamp}/payoffs.csv', sep=';')
         self.df_revenues.to_csv(f'./csv/{self.timestamp}/revenues.csv', sep=';')
         self.df_expenses.to_csv(f'./csv/{self.timestamp}/expenses.csv', sep=';')

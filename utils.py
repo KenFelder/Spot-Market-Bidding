@@ -53,20 +53,22 @@ def update_production(self):
 
         problem.solve(solver=cp.GUROBI)
 
-        self.df_bidders.loc[player, 'x_re_gen'] = x_re_gen.value
-        self.df_bidders.loc[player, 'x_th_gen'] = x_th_gen.value
-        self.df_bidders.loc[player, 'x_imb'] = x_imb.value
-        self.df_bidders.loc[player, 'x_prod'] = x_re_gen.value + x_th_gen.value
-        self.df_bidders.loc[player, 'marginal_costs'] = self.df_bidders.at[player, 'true_costs'] \
+        self.df_bidders.at[player, 'x_re_gen'] = x_re_gen.value
+        self.df_bidders.at[player, 'x_th_gen'] = x_th_gen.value
+        self.df_bidders.at[player, 'x_imb'] = x_imb.value
+        self.df_bidders.at[player, 'x_prod'] = x_re_gen.value + x_th_gen.value
+        self.df_bidders.at[player, 'marginal_costs'] = self.df_bidders.at[player, 'true_costs'] \
             if x_th_gen.value > 0 else 0
-        self.df_bidders.loc[player, 'production_costs'] = cost_prod.value
-        self.df_bidders.loc[player, 'penalty_imbalance'] = imb_penalty.value
-        self.df_bidders.loc[player, 'expenses'] = (x_th_gen.value * self.df_bidders.at[player, 'true_costs']
+        self.df_bidders.at[player, 'production_costs'] = cost_prod.value
+        self.df_bidders.at[player, 'penalty_imbalance'] = imb_penalty.value
+        self.df_bidders.at[player, 'expenses'] = (x_th_gen.value * self.df_bidders.at[player, 'true_costs']
                                                    + self.imbalance_penalty_factor * abs(x_imb.value)
                                                    )
-        self.df_bidders.loc[player, 'payoff'] = (
+        self.df_bidders.at[player, 'payoff'] = (
                 self.df_bidders.at[player, 'revenue'] - self.df_bidders.at[player, 'expenses']
         )
-
+        self.df_bidders.at[player, 'market_position'] = (
+            self.df_bidders.at[player, 'x_da'] + self.df_bidders.at[player, 'x_sold'] - self.df_bidders.at[player, 'x_bought']
+        )
     self.df_game_data.at[self.t_int, 'system_imbalance'] = sum(self.df_bidders['x_imb'])
     return
