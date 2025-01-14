@@ -7,13 +7,11 @@ def update_limits(self, player, step_factor=0.1):
     limit_sell = self.df_bidders.at[player, 'limit_sell']
     limit_buy = self.df_bidders.at[player, 'limit_buy']
     imbalance_penalty_price = self.df_game_data.at[self.t_int, 'imbalance_penalty_factor']
-    marginal_costs = self.df_bidders.at[player, 'marginal_costs']
 
     if self.df_bidders.at[player, 'x_imb'] > 0:
-        #TODO won't ever rise, because limit_sell doesn't change
-        limit_sell = (1 - step_factor) * limit_sell + step_factor * min(imbalance_penalty_price, marginal_costs, limit_sell, max_price)
+        limit_sell = (1 - step_factor) * limit_sell + step_factor * min(imbalance_penalty_price, limit_sell, max_price)
     elif self.df_bidders.at[player, 'x_imb'] < 0:
-        limit_buy = (1 - step_factor) * limit_buy + step_factor * max(imbalance_penalty_price, marginal_costs, limit_buy)
+        limit_buy = (1 - step_factor) * limit_buy + step_factor * max(imbalance_penalty_price, limit_buy)
 
     self.df_bidders.at[player, 'limit_sell'] = limit_sell
     self.df_bidders.at[player, 'limit_buy'] = limit_buy
