@@ -6,7 +6,7 @@ from config import *
 def init_new_round(self):
     # Update imbalance penalty
     self.imbalance_penalty_factor = np.exp(2 * self.t_int * np.log(10) / t_max)
-    self.imbalance_penalty_factor = 15
+    #self.imbalance_penalty_factor = 15
     self.df_game_data.at[self.t_int, 'imbalance_penalty_factor'] = self.imbalance_penalty_factor
 
     # Update forecasts
@@ -14,7 +14,6 @@ def init_new_round(self):
         self.df_bidders.at[i, 'x_re_cap'] = self.x_re_cap[i][self.t_int]
         self.df_bidders.at[i, 'x_cap'] = self.df_bidders.at[i, 'x_re_cap'] + self.df_bidders.at[i, 'x_th_cap']
     self.df_bidders.at[0, 'x_demand'] = self.x_demand[self.t_int]
-    #update_production(self)
     return
 
 def update_production(self):
@@ -44,7 +43,7 @@ def update_production(self):
         constraints = [
             x_demand + x_th_gen + x_re_gen + x_bought == x_da + x_sold + x_imb,
             x_th_gen <= x_th_cap,
-            cp.abs(x_th_gen - x_th_start) <= (1 - self.t_int / t_max) * x_th_cap,
+            cp.abs(x_th_gen - x_th_start) <= max((1 - self.t_int / (t_max * 0.9)) * x_th_cap, 0),
             # TODO: decide if re must be fed-in; if changed also change in bid_intra_trustful
             x_re_gen == x_re_cap,
             #x_re_gen <= x_re_cap,

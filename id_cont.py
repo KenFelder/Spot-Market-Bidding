@@ -1,6 +1,6 @@
 from utils import *
 
-def bid_intra_trustful(self, player, action):
+def bid_intra_trustful(self, player):
     # remove old bids/asks from order book
     self.df_order_book = self.df_order_book[self.df_order_book["participant"] != player]
 
@@ -71,7 +71,7 @@ def bid_intra_trustful(self, player, action):
         #x_demand + x_th_gen + x_re_gen + x_bought == x_da + x_sold + x_imb,
         x_demand + x_th_gen + x_re_gen + x_bought + x_buy_int == x_da + x_sold + x_sell_int + x_imb,
         x_th_gen <= x_th_cap,
-        cp.abs(x_th_gen - x_th_start) <= (1 - self.t_int / t_max) * x_th_cap,
+        cp.abs(x_th_gen - x_th_start) <= max((1 - self.t_int / (t_max * 0.9)) * x_th_cap, 0),
         # TODO: decide if re must be fed-in; if changed also change in update_production
         x_re_gen == x_re_cap,
         #x_re_gen <= x_re_cap,
