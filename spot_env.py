@@ -216,7 +216,7 @@ class SpotEnv(gym.Env):
                 calc_prices(self)
 
                 if player != n - 1:
-                    new_post = bid_intra_trustful(self, player, action)
+                    new_post = bid_intra_trustful(self, player)
                 else:
                     new_post = bid_intra_strategic(self, action, player)
 
