@@ -53,5 +53,3 @@ if __name__ == '__main__':
         fig_prices.add_trace(go.Scatter(x=df_bid_prices.index, y=df_bid_prices[f'bidder_{i}'], mode='lines', name=f'bid_bidder_{i}'))
     fig_prices.update_layout(title='Prices')
     fig_prices.show()
-
-
