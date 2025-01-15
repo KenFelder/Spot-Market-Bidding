@@ -25,11 +25,16 @@ def comp_price_estimate(transaction_prices, k_max=5):
     return lambda_hat
 
 
-def update_aggressiveness(aggressiveness, target_aggressiveness, step_factor):
+def update_aggressiveness(aggressiveness, target_aggressiveness, step_factor, delta_r=0.02, delta_a=0.01):
+    if target_aggressiveness > aggressiveness:
+        target_aggressiveness = (1 + delta_r) * target_aggressiveness + delta_a
+    elif target_aggressiveness < aggressiveness:
+        target_aggressiveness = (1 - delta_r) * target_aggressiveness - delta_a
     aggressiveness = aggressiveness + step_factor * (target_aggressiveness - aggressiveness)
+    aggressiveness = max(-1, min(1, aggressiveness))
     return aggressiveness
 
-def update_target_aggressiveness_buy(lambda_hat, limit_buy, best_target_price_buy, target_price_param, aggressiveness_buy, delta_r=0.02, delta_a=0.01):
+def update_target_aggressiveness_buy(lambda_hat, limit_buy, best_target_price_buy, target_price_param, aggressiveness_buy):
     if lambda_hat > limit_buy:
         #Extra-marginal buyer
         if best_target_price_buy >= limit_buy:
@@ -48,7 +53,7 @@ def update_target_aggressiveness_buy(lambda_hat, limit_buy, best_target_price_bu
             target_bid_aggressiveness = -np.log((1 - best_target_price_buy / lambda_hat) * (np.exp(target_price_param) - 1) + 1) / target_price_param
     return target_bid_aggressiveness
 
-def update_target_aggressiveness_sell(lambda_hat, limit_sell, best_target_price_sell, target_price_param, max_price, aggressiveness_sell, delta_r=0.02, delta_a=0.01):
+def update_target_aggressiveness_sell(lambda_hat, limit_sell, best_target_price_sell, target_price_param, max_price, aggressiveness_sell):
     if lambda_hat < limit_sell:
         #Extra-marginal seller
         if best_target_price_sell <= limit_sell:
