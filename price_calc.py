@@ -44,7 +44,7 @@ def update_target_aggressiveness_buy(lambda_hat, limit_buy, best_target_price_bu
     else:
         #Intra-marginal buyer
         if best_target_price_buy >= limit_buy:
-            target_bid_aggressiveness = aggressiveness_buy if aggressiveness_buy > 0 else 0
+            target_bid_aggressiveness = 1
         elif best_target_price_buy == lambda_hat:
             target_bid_aggressiveness = 0
         elif best_target_price_buy > lambda_hat:
@@ -63,7 +63,7 @@ def update_target_aggressiveness_sell(lambda_hat, limit_sell, best_target_price_
     else:
         #Intra-marginal seller
         if best_target_price_sell <= limit_sell:
-            target_ask_aggressiveness = aggressiveness_sell if aggressiveness_sell > 0 else 0
+            target_ask_aggressiveness = 1
         elif best_target_price_sell == lambda_hat:
             target_ask_aggressiveness = 0
         elif best_target_price_sell < lambda_hat:
