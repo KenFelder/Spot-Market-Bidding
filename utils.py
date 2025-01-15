@@ -36,15 +36,14 @@ def update_production(self):
         x_imb = cp.Variable()
 
         cost_prod = a * x_th_gen
-        # 1e-5 to prefer x_re_gen over x_imb at t_int = 0
-        imb_penalty = (self.imbalance_penalty_factor + 1e-5) * cp.abs(x_imb)
+        imb_penalty = self.imbalance_penalty_factor * cp.abs(x_imb)
 
         objective = cp.Minimize(cost_prod + imb_penalty)
 
         constraints = [
             x_demand + x_th_gen + x_re_gen + x_bought == x_da + x_sold + x_imb,
             x_th_gen <= x_th_cap,
-            cp.abs(x_th_gen - x_th_start) <= max((1 - self.t_int / (t_max * 0.9)) * x_th_cap * 0.1, 0),
+            cp.abs(x_th_gen - x_th_start) <= max((1 - self.t_int / (t_max * 0.9)) * x_th_cap, 0),
             # TODO: decide if re must be fed-in; if changed also change in bid_intra_trustful
             x_re_gen == x_re_cap,
             #x_re_gen <= x_re_cap,
