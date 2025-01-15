@@ -57,6 +57,8 @@ def init_bid_logs(self):
         'volume': [],
         'transaction_price': [],
         'match_flag': [],
+        'buyer': [],
+        'seller': [],
     }
     self.df_bid_logs = pd.DataFrame(data_bid_logs)
     self.df_bid_logs = self.df_bid_logs.astype({

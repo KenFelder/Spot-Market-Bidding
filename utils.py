@@ -15,6 +15,7 @@ def init_new_round(self):
         self.df_bidders.at[i, 'x_re_cap'] = self.x_re_cap[i][self.t_int]
         self.df_bidders.at[i, 'x_cap'] = self.df_bidders.at[i, 'x_re_cap'] + self.df_bidders.at[i, 'x_th_cap']
     self.df_bidders.at[0, 'x_demand'] = self.x_demand[self.t_int]
+
     return
 
 def update_production(self):

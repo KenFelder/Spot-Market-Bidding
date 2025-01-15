@@ -168,6 +168,9 @@ def update_books(self, player, new_post):
             last_event = 'match'
             transaction_prices.append(price)
 
+            self.df_bid_logs.at[self.t_int, 'buyer'] = buyer
+            self.df_bid_logs.at[self.t_int, 'seller'] = seller
+
     # Remove rows where volume reaches 0.1
     self.df_order_book = self.df_order_book[self.df_order_book["volume"] >= 0.1]
 
