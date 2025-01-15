@@ -28,7 +28,7 @@ start_target_price_param = [-4, -4, -4, -4, -4, -4]  # Start point for target pr
 target_price_param_step_factor = [0.9, 0.3, 0.4, 0.2, 0.5, 0.0]  # Step factor for target price parameter
 target_price_param_step_factor = [random.uniform(0.5, 1) for i in range(6)] # should be between 0 and 1
 
-bid_step_factor = [3, 3, 3, 3, 3, 3]  # Bid step factor
+bid_step_factor = [3, 3, 3, 3, 3, 3]  # Rate of convergence
 bid_step_factor = [random.uniform(1, 3) for i in range(6)]
 
 ### RL Agent ###
