@@ -16,10 +16,10 @@ def bid_intra_trustful(self, player):
     ask_price = self.df_bidders.at[player, 'ask_price']
     bid_price = self.df_bidders.at[player, 'bid_price']
 
-    ob_bid_prices = self.df_order_book[(self.df_order_book["bid_flag"] == 1) & (self.df_order_book["price"] >= ask_price)]['price'].tolist()
-    ob_bid_volumes = self.df_order_book[(self.df_order_book["bid_flag"] == 1) & (self.df_order_book["price"] >= ask_price)]['volume'].tolist()
-    ob_ask_prices = self.df_order_book[(self.df_order_book["bid_flag"] == 0) & (self.df_order_book["price"] <= bid_price)]['price'].tolist()
-    ob_ask_volumes = self.df_order_book[(self.df_order_book["bid_flag"] == 0) & (self.df_order_book["price"] <= bid_price)]['volume'].tolist()
+    ob_bid_prices = self.df_order_book[(self.df_order_book["bid_flag"] == 1)]['price'].tolist()
+    ob_bid_volumes = self.df_order_book[(self.df_order_book["bid_flag"] == 1)]['volume'].tolist()
+    ob_ask_prices = self.df_order_book[(self.df_order_book["bid_flag"] == 0)]['price'].tolist()
+    ob_ask_volumes = self.df_order_book[(self.df_order_book["bid_flag"] == 0)]['volume'].tolist()
 
     x_re_cap = self.df_bidders.at[player, 'x_re_cap']
     x_th_cap = self.df_bidders.at[player, 'x_th_cap']
