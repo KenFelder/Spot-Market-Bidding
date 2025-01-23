@@ -39,7 +39,7 @@ aftermarket_expl = 200  # Steps of aftermarket exploration
 max_bid_volume = 2000  # Maximum bid volume
 max_ask_volume = 2000  # Maximum ask volume
 max_price = 20  # Maximum price
-min_price = 0  # Minimum price
+min_price = -20  # Minimum price
 
 ############### Game Parameters ################
 t_max = 200  # Number of time steps

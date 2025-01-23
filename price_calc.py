@@ -41,7 +41,7 @@ def update_target_aggressiveness_buy(lambda_hat, limit_buy, best_target_price_bu
         if best_target_price_buy >= limit_buy:
             target_bid_aggressiveness = aggressiveness_buy if aggressiveness_buy > 0 else 0
         else:
-            target_bid_aggressiveness = -np.log(1 + (1 - best_target_price_buy / limit_buy) * (np.exp(target_price_param) - 1)) / target_price_param
+            target_bid_aggressiveness = -np.log(((best_target_price_buy - limit_buy) / (min_price - limit_buy)) * (np.exp(target_price_param) - 1) + 1) / target_price_param
     else:
         #Intra-marginal buyer
         if best_target_price_buy >= limit_buy:
@@ -51,7 +51,7 @@ def update_target_aggressiveness_buy(lambda_hat, limit_buy, best_target_price_bu
         elif best_target_price_buy > lambda_hat:
             target_bid_aggressiveness = np.log((best_target_price_buy - lambda_hat) * (np.exp(target_price_param) - 1) / (limit_buy - lambda_hat) + 1) / target_price_param
         else:
-            target_bid_aggressiveness = -np.log((1 - best_target_price_buy / lambda_hat) * (np.exp(target_price_param) - 1) + 1) / target_price_param
+            target_bid_aggressiveness = -np.log(((best_target_price_buy - lambda_hat) / (min_price - lambda_hat)) * (np.exp(target_price_param) - 1) + 1) / target_price_param
     return target_bid_aggressiveness
 
 def update_target_aggressiveness_sell(lambda_hat, limit_sell, best_target_price_sell, target_price_param, max_price, aggressiveness_sell):
@@ -109,15 +109,15 @@ def calc_target_price(lambda_hat, lambda_max, limit_buy, limit_sell, aggressiven
             target_price_buy = (lambda_hat + (limit_buy - lambda_hat) *
                                 (np.exp(aggressiveness_buy * target_price_param) - 1)/(np.exp(target_price_param) - 1))
         else:
-            target_price_buy = (lambda_hat * (1 - (np.exp(-aggressiveness_buy * target_price_param) - 1) /
-                                              (np.exp(target_price_param) - 1)))
+            target_price_buy = lambda_hat + (min_price - lambda_hat) * (np.exp(-aggressiveness_buy * target_price_param)
+                                                                        - 1) / (np.exp(target_price_param) - 1)
     # Extra-marginal buyer
     else:
         if aggressiveness_buy >= 0:
             target_price_buy = limit_buy
         else:
-            target_price_buy = limit_buy * (1 - ((np.exp(-aggressiveness_buy * target_price_param)-1) /
-                                            (np.exp(target_price_param)-1)))
+            target_price_buy = limit_buy + (min_price - limit_buy) * (np.exp(-aggressiveness_buy * target_price_param)
+                                                                      - 1) / (np.exp(target_price_param) - 1)
 
     # Sell side
     # Intra-marginal seller
