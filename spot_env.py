@@ -150,6 +150,10 @@ class SpotEnv(gym.Env):
         # Day-ahead auction
         if self._current_step == 0:
             init_new_round(self)
+
+            #TODO: remove to include RL
+            action = np.array([max_price, 0])
+
             max_sw(self, action)
             self.t_int += 1
 
