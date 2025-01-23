@@ -44,7 +44,8 @@ def update_production(self):
         constraints = [
             x_demand + x_th_gen + x_re_gen + x_bought == x_da + x_sold + x_imb,
             x_th_gen <= x_th_cap,
-            cp.abs(x_th_gen - x_th_start) <= max((1 - self.t_int / (t_max * 0.625)) * x_th_cap, 0),
+            x_th_gen <= x_th_start + ramp_up[player] * (t_max - self.t_int),
+            x_th_gen >= x_th_start - ramp_down[player] * (t_max - self.t_int),
             # TODO: decide if re must be fed-in; if changed also change in bid_intra_trustful
             x_re_gen == x_re_cap,
             #x_re_gen <= x_re_cap,

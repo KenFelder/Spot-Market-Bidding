@@ -11,9 +11,11 @@ start_sd_re_gen = [0, 0.4, 0.1, 0.7, 0.05, 0.2]  # Start point for standard devi
 demand_mean = -2500  # Actual demand (not forecasted)
 start_sd_demand = 0.2  # Start point for standard deviation of demand forecast
 
-### Bidding ###
+### Thermal capacity ###
 true_costs = [0, 5, 12, 16, 18, 11]  # Production costs
 x_th_cap = [0, 300, 300, 300, 300, 300]  # Thermal capacity
+ramp_up = [0, 1.5, 1.5, 1.5, 1.5, 1.5]  # Ramp up and down MWh / time step
+ramp_down = [0, 1.5, 1.5, 1.5, 1.5, 1.5]  # Ramp up and down MWh / time step
 
 ## Intraday ##
 start_aggressiveness_bid = [-0.6, 0.4, 0.7, -0.1, -0.1, -0.1]  # Start point for aggressiveness of bids
