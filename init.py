@@ -194,6 +194,8 @@ def init_config_logs(self):
 
 
 def init_logs(self):
+    self.df_config = init_config_logs(self)
+
     self.df_game_data = init_game_data(self)
     self.df_bid_logs = init_bid_logs(self)
 
