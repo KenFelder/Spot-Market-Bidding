@@ -155,6 +155,44 @@ def init_bidders(self):
     })
     return self.df_bidders
 
+def init_config_logs(self):
+    data_config = {  ### Forecasting ###
+        "re_gen_mean": re_gen_mean,  # Actual renewable generation (not forecasted)
+        "start_sd_re_gen": start_sd_re_gen,  # Start point for standard deviation of renewable generation forecast
+
+        "demand_mean": demand_mean,  # Actual demand (not forecasted)
+        "start_sd_demand": start_sd_demand,  # Start point for standard deviation of demand forecast
+
+        ### Bidding ###
+        "true_costs": true_costs,  # Production costs
+        "x_th_cap": x_th_cap,  # Thermal capacity
+
+        ## Intraday ##
+        "start_aggressiveness_ask": start_aggressiveness_ask,
+        "start_aggressiveness_bid": start_aggressiveness_bid,
+        "aggressiveness_step_factor": aggressiveness_step_factor,
+
+        "start_target_price_param": start_target_price_param,
+        "target_price_param_step_factor": target_price_param_step_factor,  # should be between 0 and 1
+
+        "bid_step_factor": bid_step_factor,  # Rate of convergence
+
+        ### RL Agent ###
+        "aftermarket_expl": aftermarket_expl,  # Steps of aftermarket exploration
+        "max_bid_volume": max_bid_volume,  # Maximum bid volume
+        "max_ask_volume": max_ask_volume,  # Maximum ask volume
+        "max_price": max_price,  # Maximum price
+        "min_price": min_price,  # Minimum price
+
+        ############### Game Parameters ################
+        "t_max": t_max,  # Number of time steps
+        "n": n,  # Number of bidders
+    }
+    self.df_config = pd.DataFrame(data_config)
+    return self.df_config
+
+
+
 def init_logs(self):
     self.df_game_data = init_game_data(self)
     self.df_bid_logs = init_bid_logs(self)

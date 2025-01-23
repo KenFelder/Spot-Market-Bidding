@@ -245,6 +245,8 @@ class SpotEnv(gym.Env):
 
         self.df_bidders.to_csv(f'./csv/{self.timestamp}/bidders.csv', sep=';')
 
+        self.df_config.to_csv(f'./csv/{self.timestamp}/config.csv', sep=';')
+
         # Define state and reward
         reward = self.df_bidders.at[n - 1, 'payoff']
 
