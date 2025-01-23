@@ -4,7 +4,8 @@ from config import *
 
 
 def init_forecasts(self):
-    sd_re_gen = [np.linspace(start_sd_re_gen[i], 0, t_max, dtype=np.float64) for i in range(n)]
+    modified_start_sd_re_gen = [start_sd_re_gen[i] if re_gen_mean[i] > 0 else 0 for i in range(n)]
+    sd_re_gen = [np.linspace(modified_start_sd_re_gen[i], 0, t_max, dtype=np.float64) for i in range(n)]
     self.x_re_cap = [[np.random.normal(
         loc=re_gen_mean[i],
         scale=sd_re_gen[i][t] * re_gen_mean[i]
