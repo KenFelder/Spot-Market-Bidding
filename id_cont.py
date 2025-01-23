@@ -6,7 +6,7 @@ def bid_intra_trustful(self, player):
 
     x_th_start = self.df_bidders.at[player, 'x_th_gen']
 
-    a = self.df_bidders.at[player, 'true_costs']
+    true_costs = self.df_bidders.at[player, 'true_costs']
 
     x_demand = self.df_bidders.at[player, 'x_demand']
     x_da = self.df_bidders.at[player, 'x_da']
@@ -62,13 +62,12 @@ def bid_intra_trustful(self, player):
         ob_sell = 0
 
     payoff_new_bid = ask_price * (x_sell_int - cp.sum(ob_sell)) - bid_price * (x_buy_int - cp.sum(ob_buy))
-    cost_prod = a * x_th_gen
+    cost_prod = true_costs * x_th_gen
     penalty_imb = self.imbalance_penalty_factor * cp.abs(x_imb)
 
     objective = cp.Maximize(payoff_new_bid - cost_prod - penalty_imb + ob_sell_payoff - ob_buy_costs)
 
     constraints = [
-        #x_demand + x_th_gen + x_re_gen + x_bought == x_da + x_sold + x_imb,
         x_demand + x_th_gen + x_re_gen + x_bought + x_buy_int == x_da + x_sold + x_sell_int + x_imb,
         x_th_gen <= x_th_cap,
         x_th_gen <= x_th_start + ramp_up[player] * (t_max - self.t_int),

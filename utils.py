@@ -22,7 +22,7 @@ def update_production(self):
     for player in range(n):
         x_th_start = self.df_bidders.at[player, 'x_th_gen']
 
-        a = self.df_bidders.at[player, 'true_costs']
+        true_costs = self.df_bidders.at[player, 'true_costs']
 
         x_demand = self.df_bidders.at[player, 'x_demand']
         x_da = self.df_bidders.at[player, 'x_da']
@@ -36,7 +36,7 @@ def update_production(self):
         x_th_gen = cp.Variable(nonneg=True)
         x_imb = cp.Variable()
 
-        cost_prod = a * x_th_gen
+        cost_prod = true_costs * x_th_gen
         imb_penalty = self.imbalance_penalty_factor * cp.abs(x_imb)
 
         objective = cp.Minimize(cost_prod + imb_penalty)
