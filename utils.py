@@ -6,8 +6,8 @@ from config import *
 def init_new_round(self):
     # Update imbalance penalty
     min_cost = np.min([c for c in true_costs if c > 0])
-    self.imbalance_penalty_factor = np.exp(((np.log(max_price) - np.log(min_cost - 1)) * self.t_int) / t_max + np.log(min_cost - 1))
-    self.imbalance_penalty_factor = 15
+    self.imbalance_penalty_factor = np.exp(((np.log(max_price) - np.log(min_cost)) * self.t_int) / t_max + np.log(min_cost))
+    self.imbalance_penalty_factor = max_price #if self.df_bidders['x_imb'].sum() > 0 else min_cost
     self.df_game_data.at[self.t_int, 'imbalance_penalty_factor'] = self.imbalance_penalty_factor
 
     # Update forecasts
