@@ -92,8 +92,11 @@ def bid_intra_trustful(self, player):
     return new_post
 
 def bid_intra_strategic(self, action, player):
-    bid_flag = 1 if action[1] < 0 else 0
-    new_post = [bid_flag, action[0], abs(action[1]), player, self.t_int]
+    price = action[0]
+    volume = action[1]
+    bid_flag = 1 if volume < 0 else 0
+
+    new_post = [bid_flag, price, abs(volume), player, self.t_int]
 
     return new_post
 
