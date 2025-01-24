@@ -63,11 +63,11 @@ def update_production(self):
             if x_th_gen.value > 0 else 0
         self.df_bidders.at[player, 'production_costs'] = cost_prod.value
         self.df_bidders.at[player, 'penalty_imbalance'] = imb_penalty.value
-        self.df_bidders.at[player, 'expenses'] = (x_th_gen.value * self.df_bidders.at[player, 'true_costs']
-                                                   + self.imbalance_penalty_factor * abs(x_imb.value)
-                                                   )
         self.df_bidders.at[player, 'payoff'] = (
-                self.df_bidders.at[player, 'revenue'] - self.df_bidders.at[player, 'expenses']
+                self.df_bidders.at[player, 'revenue']
+                - self.df_bidders.at[player, 'expenses']
+                - self.df_bidders.at[player, 'penalty_imbalance']
+                - self.df_bidders.at[player, 'production_costs']
         )
         self.df_bidders.at[player, 'market_position'] = (
             self.df_bidders.at[player, 'x_da'] + self.df_bidders.at[player, 'x_sold'] - self.df_bidders.at[player, 'x_bought']
