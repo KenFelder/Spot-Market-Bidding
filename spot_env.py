@@ -97,7 +97,7 @@ class SpotEnv(gym.Env):
                 'x_cap': np.array([self.df_bidders.loc[n - 1, 'x_cap']]),
                 'x_imb': np.array([self.df_bidders.loc[n - 1, 'x_imb']]),
                 'x_re_gen': np.array([self.df_bidders.loc[n - 1, 'x_re_gen']]),
-                'x_prod': np.array([self.df_bidders.loc[n - 1, 'x_prod']]),
+                'x_th_gen': np.array([self.df_bidders.loc[n - 1, 'x_th_gen']]),
                 'x_da': np.array([self.df_bidders.loc[n - 1, 'x_da']]),
                 'x_bought': np.array([self.df_bidders.loc[n - 1, 'x_bought']]),
                 'x_sold': np.array([self.df_bidders.loc[n - 1, 'x_sold']]),
@@ -106,6 +106,8 @@ class SpotEnv(gym.Env):
                 'Best ask (price, volume)': np.array([0, 0]),
                 'Sum volume (bid, ask)': np.array([0, 0]),
                 'steps left': np.array([self.t_max - self.t_int]),
+                'len_bids': np.array([0]),
+                'len_asks': np.array([0]),
             }
 
         else:
@@ -113,32 +115,39 @@ class SpotEnv(gym.Env):
             len_bids = len(self.df_order_book[self.df_order_book['bid_flag'] == 1])
             len_asks = len(self.df_order_book[self.df_order_book['bid_flag'] == 0])
             if len_bids != 0:
-                best_bid = self.df_order_book[self.df_order_book['bid_flag'] == 1].iloc[0]
+                best_bid_price = self.df_order_book[self.df_order_book['bid_flag'] == 1]['price'].iloc[0]
+                best_bid_volume = self.df_order_book[self.df_order_book['bid_flag'] == 1]['volume'].iloc[0]
                 sum_volume_bid = self.df_order_book[self.df_order_book['bid_flag'] == 1]['volume'].sum()
+                best_bid = np.array([best_bid_price, best_bid_volume])
             else:
-                best_bid = dict({'price': 0, 'volume': 0})
+                best_bid = np.array([0, 0])
                 sum_volume_bid = 0
             if len_asks != 0:
-                best_ask = self.df_order_book[self.df_order_book['bid_flag'] == 0].iloc[
+                best_ask_price = self.df_order_book[self.df_order_book['bid_flag'] == 0]['price'].iloc[
+                    len_asks - 1]
+                best_ask_volume = self.df_order_book[self.df_order_book['bid_flag'] == 0]['volume'].iloc[
                     len_asks - 1]
                 sum_volume_ask = self.df_order_book[self.df_order_book['bid_flag'] == 0]['volume'].sum()
+                best_ask = np.array([best_ask_price, best_ask_volume])
             else:
-                best_ask = dict({'price': 0, 'volume': 0})
+                best_ask = np.array([0, 0])
                 sum_volume_ask = 0
 
             obs = {
                 'x_cap': np.array([self.df_bidders.loc[n - 1, 'x_cap']]),
                 'x_imb': np.array([self.df_bidders.loc[n - 1, 'x_imb']]),
                 'x_re_gen': np.array([self.df_bidders.loc[n - 1, 'x_re_gen']]),
-                'x_prod': np.array([self.df_bidders.loc[n - 1, 'x_prod']]),
+                'x_th_gen': np.array([self.df_bidders.loc[n - 1, 'x_th_gen']]),
                 'x_da': np.array([self.df_bidders.loc[n - 1, 'x_da']]),
                 'x_bought': np.array([self.df_bidders.loc[n - 1, 'x_bought']]),
                 'x_sold': np.array([self.df_bidders.loc[n - 1, 'x_sold']]),
                 'revenue': np.array([self.df_bidders.loc[n - 1, 'revenue']]),
-                'Best bid (price, volume)': np.array([0, 0]),
-                'Best ask (price, volume)': np.array([0, 0]),
-                'Sum volume (bid, ask)': np.array([0, 0]),
+                'Best bid (price, volume)': best_bid,
+                'Best ask (price, volume)': best_ask,
+                'Sum volume (bid, ask)': np.array([sum_volume_bid, sum_volume_ask]),
                 'steps left': np.array([self.t_max - self.t_int]),
+                'len_bids': np.array([len_bids]),
+                'len_asks': np.array([len_asks]),
             }
 
         return obs
@@ -251,8 +260,14 @@ class SpotEnv(gym.Env):
 
         self.df_config.to_csv(f'./csv/{self.timestamp}/config.csv', sep=';')
 
-        # Define state and reward
-        reward = self.df_bidders.at[n - 1, 'payoff']
+        # Define
+        t_int = self.t_int - 1
+        if t_int == 0:
+            reward = self.df_bidders.at[n - 1, 'payoff']
+        elif t_int == 1:
+            reward = 0
+        else:
+            reward = self.df_payoffs.at[t_int, f'bidder_{n - 1}'] - self.df_payoffs.at[t_int - 1, f'bidder_{n - 1}']
 
         self._current_step += 1
 
