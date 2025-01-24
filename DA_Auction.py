@@ -6,7 +6,7 @@ from config import *
 
 def max_sw(self, action):
     prices = np.array([0] + self.df_bidders['true_costs'][1:-1].tolist() + [action[0]])
-    volumes = np.array([0] + self.df_bidders['x_cap'][1:-1].tolist() + [action[1]])
+    volumes = np.array([0] + self.df_bidders['x_cap'][1:-1].tolist() + [max(action[1], 0)])
 
     demand = min(-self.x_demand[self.t_int], volumes.sum())
 
