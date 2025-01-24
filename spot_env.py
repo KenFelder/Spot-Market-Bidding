@@ -44,9 +44,9 @@ class SpotEnv(gym.Env):
             'x_sold': spaces.Box(low=0, high=np.inf, dtype=np.float64),
             'revenue': spaces.Box(low=-np.inf, high=np.inf, dtype=np.float64),
             # Public information
-            'Best bid (price, volume)': spaces.Box(low=np.array([-np.inf, 0]), high=np.array([np.inf, np.inf]),
+            'Best bid (price, volume)': spaces.Box(low=np.array([min_price, 0]), high=np.array([max_price, max_bid_volume]),
                                                    dtype=np.float64),
-            'Best ask (price, volume)': spaces.Box(low=np.array([-np.inf, 0]), high=np.array([np.inf, np.inf]),
+            'Best ask (price, volume)': spaces.Box(low=np.array([min_price, 0]), high=np.array([max_price, max_ask_volume]),
                                                    dtype=np.float64),
             #'Last trade (price, volume)': spaces.Box(low=np.array([-np.inf, 0]), high=np.array([np.inf, np.inf]),
             #                                         dtype=np.float64),
@@ -54,6 +54,8 @@ class SpotEnv(gym.Env):
             #                                                         high=np.array([np.inf, np.inf]), dtype=np.float64),
             'Sum volume (bid, ask)': spaces.Box(low=np.array([0, 0]), high=np.array([np.inf, np.inf]), dtype=np.float64),
             'steps left': spaces.Box(low=0, high=self.t_max, dtype=np.float64),
+            'len_bids': spaces.Box(low=0, high=n, dtype=np.float64),
+            'len_asks': spaces.Box(low=0, high=n, dtype=np.float64),
         })
 
         ## Action space
@@ -216,11 +218,14 @@ class SpotEnv(gym.Env):
                 self.df_penalty_imbalances.loc[self.t_int] = self.df_bidders['penalty_imbalance'].values
                 self.df_imbalances.loc[self.t_int] = self.df_bidders['x_imb'].values
 
+
+
                 # Intraday timer
                 self.t_int += 1
                 if self.t_int >= self.t_max:
                     truncated = True
                     break
+
                 if player == n - 1:
                     break
 
