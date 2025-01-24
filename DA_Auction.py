@@ -8,7 +8,7 @@ def max_sw(self, action):
     prices = np.array([0] + self.df_bidders['true_costs'][1:-1].tolist() + [action[0]])
     volumes = np.array([0] + self.df_bidders['x_cap'][1:-1].tolist() + [action[1]])
 
-    demand = -self.x_demand[self.t_int]
+    demand = min(-self.x_demand[self.t_int], volumes.sum())
 
     x_re_caps = np.array([self.df_bidders.at[i, 'x_re_cap'] if volumes[i] > 0 else 0 for i in range(n)])
     x_th_caps = np.array([self.df_bidders.at[i, 'x_th_cap'] if volumes[i] > 0 else 0 for i in range(n)])
