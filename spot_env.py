@@ -38,7 +38,7 @@ class SpotEnv(gym.Env):
             'x_cap': spaces.Box(low=0, high=np.inf, dtype=np.float64),
             'x_imb': spaces.Box(low=-np.inf, high=np.inf, dtype=np.float64),
             'x_re_gen': spaces.Box(low=0, high=np.inf, dtype=np.float64),
-            'x_prod': spaces.Box(low=0, high=np.inf, dtype=np.float64),
+            'x_th_gen': spaces.Box(low=0, high=np.inf, dtype=np.float64),
             'x_da': spaces.Box(low=0, high=np.inf, dtype=np.float64),
             'x_bought': spaces.Box(low=0, high=np.inf, dtype=np.float64),
             'x_sold': spaces.Box(low=0, high=np.inf, dtype=np.float64),
