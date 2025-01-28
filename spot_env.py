@@ -35,24 +35,51 @@ class SpotEnv(gym.Env):
         ## Observation space
         self.observation_space = spaces.Dict({
             # Private information
-            'x_cap': spaces.Box(low=0, high=np.inf, dtype=np.float64),
-            'x_imb': spaces.Box(low=-np.inf, high=np.inf, dtype=np.float64),
-            'x_re_gen': spaces.Box(low=0, high=np.inf, dtype=np.float64),
-            'x_th_gen': spaces.Box(low=0, high=np.inf, dtype=np.float64),
+            'market_id': spaces.Discrete(2),
+            'x_imb': spaces.Box(low=-np.inf, high=1e4, dtype=np.float64),
+            'x_re_gen': spaces.Box(low=0, high=1500, dtype=np.float64),
+            'x_th_gen': spaces.Box(low=0, high=1, dtype=np.float64),
             'x_da': spaces.Box(low=0, high=np.inf, dtype=np.float64),
             'x_bought': spaces.Box(low=0, high=np.inf, dtype=np.float64),
             'x_sold': spaces.Box(low=0, high=np.inf, dtype=np.float64),
             'revenue': spaces.Box(low=-np.inf, high=np.inf, dtype=np.float64),
             # Public information
-            'Best bid (price, volume)': spaces.Box(low=np.array([min_price, 0]), high=np.array([max_price, max_bid_volume]),
-                                                   dtype=np.float64),
-            'Best ask (price, volume)': spaces.Box(low=np.array([min_price, 0]), high=np.array([max_price, max_ask_volume]),
-                                                   dtype=np.float64),
-            #'Last trade (price, volume)': spaces.Box(low=np.array([-np.inf, 0]), high=np.array([np.inf, np.inf]),
-            #                                         dtype=np.float64),
-            #'Volume weighted average prices (bid, ask)': spaces.Box(low=np.array([-np.inf, -np.inf]),
-            #                                                         high=np.array([np.inf, np.inf]), dtype=np.float64),
-            'Sum volume (bid, ask)': spaces.Box(low=np.array([0, 0]), high=np.array([np.inf, np.inf]), dtype=np.float64),
+            'Bid 0 (price, volume)': spaces.Box(low=np.array([min_price, 0]),
+                                                high=np.array([max_price, max_bid_volume]),
+                                                dtype=np.float64),
+            'Bid 1 (price, volume)': spaces.Box(low=np.array([min_price, 0]),
+                                                high=np.array([max_price, max_bid_volume]),
+                                                dtype=np.float64),
+            'Bid 2 (price, volume)': spaces.Box(low=np.array([min_price, 0]),
+                                                high=np.array([max_price, max_bid_volume]),
+                                                dtype=np.float64),
+            'Bid 3 (price, volume)': spaces.Box(low=np.array([min_price, 0]),
+                                                high=np.array([max_price, max_bid_volume]),
+                                                dtype=np.float64),
+            'Bid 4 (price, volume)': spaces.Box(low=np.array([min_price, 0]),
+                                                high=np.array([max_price, max_bid_volume]),
+                                                dtype=np.float64),
+            'Bid 5 (price, volume)': spaces.Box(low=np.array([min_price, 0]),
+                                                high=np.array([max_price, max_bid_volume]),
+                                                dtype=np.float64),
+            'Ask 0 (price, volume)': spaces.Box(low=np.array([min_price, 0]),
+                                                high=np.array([max_price, max_ask_volume]),
+                                                dtype=np.float64),
+            'Ask 1 (price, volume)': spaces.Box(low=np.array([min_price, 0]),
+                                                high=np.array([max_price, max_ask_volume]),
+                                                dtype=np.float64),
+            'Ask 2 (price, volume)': spaces.Box(low=np.array([min_price, 0]),
+                                                high=np.array([max_price, max_ask_volume]),
+                                                dtype=np.float64),
+            'Ask 3 (price, volume)': spaces.Box(low=np.array([min_price, 0]),
+                                                high=np.array([max_price, max_ask_volume]),
+                                                dtype=np.float64),
+            'Ask 4 (price, volume)': spaces.Box(low=np.array([min_price, 0]),
+                                                high=np.array([max_price, max_ask_volume]),
+                                                dtype=np.float64),
+            'Ask 5 (price, volume)': spaces.Box(low=np.array([min_price, 0]),
+                                                high=np.array([max_price, max_ask_volume]),
+                                                dtype=np.float64),
             'steps left': spaces.Box(low=0, high=self.t_max, dtype=np.float64),
             'len_bids': spaces.Box(low=0, high=n, dtype=np.float64),
             'len_asks': spaces.Box(low=0, high=n, dtype=np.float64),
@@ -62,11 +89,10 @@ class SpotEnv(gym.Env):
         self.action_space = spaces.Box(low=np.array([min_price, -max_bid_volume]),
                                        high=np.array([max_price, max_ask_volume]), dtype=np.float64)
 
-    def reset(self, seed=None):
+    def reset(self, seed=None, options=None):
         # log
+        self.run += 1
         self.timestamp = datetime.now().strftime('%Y%m%d_%H-%M-%S')
-        os.makedirs(f'./csv/{self.timestamp}/', exist_ok=True)
-        os.makedirs(f'./csv/{self.timestamp}/', exist_ok=True)
         os.makedirs(f'./csv/{self.timestamp}/', exist_ok=True)
 
         #### Steps
@@ -94,62 +120,114 @@ class SpotEnv(gym.Env):
         return obs, {}
 
     def get_obs(self):
+        x_imb = normalize_zero_centered(self.df_bidders.loc[n - 1, 'x_imb'], min_x_imb, max_x_imb)
+        x_re_gen = normalize(self.df_bidders.loc[n - 1, 'x_re_gen'], min_x_re_gen, max_x_re_gen)
+        x_th_gen = normalize(self.df_bidders.loc[n - 1, 'x_th_gen'], min_x_th_gen, max_x_th_gen)
+        x_da = normalize(self.df_bidders.loc[n - 1, 'x_da'], min_x_da, max_x_da)
+        x_bought = normalize(self.df_bidders.loc[n - 1, 'x_bought'], min_x_bought, max_x_bought)
+        x_sold = normalize(self.df_bidders.loc[n - 1, 'x_sold'], min_x_sold, max_x_sold)
+        revenue = normalize(self.df_bidders.loc[n - 1, 'revenue'], min_revenue, max_revenue)
+        expenses = normalize(self.df_bidders.loc[n - 1, 'expenses'], min_expenses, max_expenses)
+
+        x_imb = self.df_bidders.loc[n - 1, 'x_imb']
+        x_re_gen = self.df_bidders.loc[n - 1, 'x_re_gen']
+        x_th_gen = self.df_bidders.loc[n - 1, 'x_th_gen']
+        x_th_start = self.df_bidders.loc[n - 1, 'x_th_start']
+        x_da = self.df_bidders.loc[n - 1, 'x_da']
+        x_bought = self.df_bidders.loc[n - 1, 'x_bought']
+        x_sold = self.df_bidders.loc[n - 1, 'x_sold']
+        revenue = self.df_bidders.loc[n - 1, 'revenue']
+        expenses = self.df_bidders.loc[n - 1, 'expenses']
+
         if self._current_step == 0:
             obs = {
-                'x_cap': np.array([self.df_bidders.loc[n - 1, 'x_cap']]),
-                'x_imb': np.array([self.df_bidders.loc[n - 1, 'x_imb']]),
-                'x_re_gen': np.array([self.df_bidders.loc[n - 1, 'x_re_gen']]),
-                'x_th_gen': np.array([self.df_bidders.loc[n - 1, 'x_th_gen']]),
-                'x_da': np.array([self.df_bidders.loc[n - 1, 'x_da']]),
-                'x_bought': np.array([self.df_bidders.loc[n - 1, 'x_bought']]),
-                'x_sold': np.array([self.df_bidders.loc[n - 1, 'x_sold']]),
-                'revenue': np.array([self.df_bidders.loc[n - 1, 'revenue']]),
-                'Best bid (price, volume)': np.array([0, 0]),
-                'Best ask (price, volume)': np.array([0, 0]),
-                'Sum volume (bid, ask)': np.array([0, 0]),
-                'steps left': np.array([self.t_max - self.t_int]),
-                'len_bids': np.array([0]),
-                'len_asks': np.array([0]),
+                'market_id': np.array([0]),  # '0' for day-ahead, '1' for intraday
+                'x_imb': np.array([x_imb]),
+                'x_re_gen': np.array([x_re_gen]),
+                'x_th_gen': np.array([x_th_gen]),
+                'x_th_start': np.array([x_th_start]),
+                'x_da': np.array([x_da]),
+                'x_bought': np.array([x_bought]),
+                'x_sold': np.array([x_sold]),
+                'revenue': np.array([revenue]),
+                'expenses': np.array([expenses]),
+                'Bid 0 (price, volume)': np.array([0, 0]),
+                'Bid 1 (price, volume)': np.array([0, 0]),
+                'Bid 2 (price, volume)': np.array([0, 0]),
+                'Bid 3 (price, volume)': np.array([0, 0]),
+                'Bid 4 (price, volume)': np.array([0, 0]),
+                'Bid 5 (price, volume)': np.array([0, 0]),
+                'Ask 0 (price, volume)': np.array([0, 0]),
+                'Ask 1 (price, volume)': np.array([0, 0]),
+                'Ask 2 (price, volume)': np.array([0, 0]),
+                'Ask 3 (price, volume)': np.array([0, 0]),
+                'Ask 4 (price, volume)': np.array([0, 0]),
+                'Ask 5 (price, volume)': np.array([0, 0]),
+                'steps left': np.array([(self.t_max - self.t_int) / self.t_max]),
             }
 
         else:
-            # TODO: calc last trade, volume weighted average prices
             len_bids = len(self.df_order_book[self.df_order_book['bid_flag'] == 1])
             len_asks = len(self.df_order_book[self.df_order_book['bid_flag'] == 0])
+            bid_prices = []
+            bid_volumes = []
+            ask_prices = []
+            ask_volumes = []
             if len_bids != 0:
-                best_bid_price = self.df_order_book[self.df_order_book['bid_flag'] == 1]['price'].iloc[0]
-                best_bid_volume = self.df_order_book[self.df_order_book['bid_flag'] == 1]['volume'].iloc[0]
-                sum_volume_bid = self.df_order_book[self.df_order_book['bid_flag'] == 1]['volume'].sum()
-                best_bid = np.array([best_bid_price, best_bid_volume])
+                for bid in range(len_bids):
+                    bid_price = normalize_zero_centered(self.df_order_book[self.df_order_book['bid_flag'] == 1]['price'].iloc[bid], min_price, max_price)
+                    bid_prices.append(bid_price)
+
+                    bid_volume = normalize_zero_centered(self.df_order_book[self.df_order_book['bid_flag'] == 1]['volume'].iloc[bid], 0, max_bid_volume)
+                    bid_volumes.append(bid_volume)
+                for bid in range(n - len_bids):
+                    bid_prices.append(0)
+                    bid_volumes.append(0)
             else:
-                best_bid = np.array([0, 0])
-                sum_volume_bid = 0
+                for bid in range(n):
+                    bid_prices.append(0)
+                    bid_volumes.append(0)
             if len_asks != 0:
-                best_ask_price = self.df_order_book[self.df_order_book['bid_flag'] == 0]['price'].iloc[
-                    len_asks - 1]
-                best_ask_volume = self.df_order_book[self.df_order_book['bid_flag'] == 0]['volume'].iloc[
-                    len_asks - 1]
-                sum_volume_ask = self.df_order_book[self.df_order_book['bid_flag'] == 0]['volume'].sum()
-                best_ask = np.array([best_ask_price, best_ask_volume])
+                for ask in range(len_asks):
+                    ask_price = normalize_zero_centered(self.df_order_book[self.df_order_book['bid_flag'] == 0]['price'].iloc[ask], min_price, max_price)
+                    ask_prices.append(ask_price)
+                    ask_volume = normalize_zero_centered(self.df_order_book[self.df_order_book['bid_flag'] == 0]['volume'].iloc[ask], 0, max_ask_volume)
+                    ask_volumes.append(ask_volume)
+                for ask in range(n - len_asks):
+                    ask_prices.append(0)
+                    ask_volumes.append(0)
             else:
-                best_ask = np.array([0, 0])
-                sum_volume_ask = 0
+                for ask in range(n):
+                    ask_prices.append(0)
+                    ask_volumes.append(0)
+
+
 
             obs = {
-                'x_cap': np.array([self.df_bidders.loc[n - 1, 'x_cap']]),
-                'x_imb': np.array([self.df_bidders.loc[n - 1, 'x_imb']]),
-                'x_re_gen': np.array([self.df_bidders.loc[n - 1, 'x_re_gen']]),
-                'x_th_gen': np.array([self.df_bidders.loc[n - 1, 'x_th_gen']]),
-                'x_da': np.array([self.df_bidders.loc[n - 1, 'x_da']]),
-                'x_bought': np.array([self.df_bidders.loc[n - 1, 'x_bought']]),
-                'x_sold': np.array([self.df_bidders.loc[n - 1, 'x_sold']]),
-                'revenue': np.array([self.df_bidders.loc[n - 1, 'revenue']]),
-                'Best bid (price, volume)': best_bid,
-                'Best ask (price, volume)': best_ask,
-                'Sum volume (bid, ask)': np.array([sum_volume_bid, sum_volume_ask]),
-                'steps left': np.array([self.t_max - self.t_int]),
-                'len_bids': np.array([len_bids]),
-                'len_asks': np.array([len_asks]),
+                'market_id': np.array([1]),  # '0' for day-ahead, '1' for intraday
+                'x_imb': np.array([x_imb]),
+                'x_re_gen': np.array([x_re_gen]),
+                'x_th_gen': np.array([x_th_gen]),
+                'x_da': np.array([x_da]),
+                'x_bought': np.array([x_bought]),
+                'x_sold': np.array([x_sold]),
+                'revenue': np.array([revenue]),
+                'expenses': np.array([expenses]),
+                'Bid 0 (price, volume)': np.array([bid_prices[0], bid_volumes[0]]),
+                'Bid 1 (price, volume)': np.array([bid_prices[1], bid_volumes[1]]),
+                'Bid 2 (price, volume)': np.array([bid_prices[2], bid_volumes[2]]),
+                'Bid 3 (price, volume)': np.array([bid_prices[3], bid_volumes[3]]),
+                'Bid 4 (price, volume)': np.array([bid_prices[4], bid_volumes[4]]),
+                'Bid 5 (price, volume)': np.array([bid_prices[5], bid_volumes[5]]),
+                'Ask 0 (price, volume)': np.array([ask_prices[0], ask_volumes[0]]),
+                'Ask 1 (price, volume)': np.array([ask_prices[1], ask_volumes[1]]),
+                'Ask 2 (price, volume)': np.array([ask_prices[2], ask_volumes[2]]),
+                'Ask 3 (price, volume)': np.array([ask_prices[3], ask_volumes[3]]),
+                'Ask 4 (price, volume)': np.array([ask_prices[4], ask_volumes[4]]),
+                'Ask 5 (price, volume)': np.array([ask_prices[5], ask_volumes[5]]),
+                'steps left': np.array([(self.t_max - self.t_int) / self.t_max]),
+                #'len_bids': np.array([len_bids]),
+                #'len_asks': np.array([len_asks]),
             }
 
         return obs
@@ -163,9 +241,10 @@ class SpotEnv(gym.Env):
             init_new_round(self)
 
             #TODO: remove to include RL
-            action = np.array([max_price, 0])
+            #action = np.array([max_price, 0])
 
             max_sw(self, action)
+
             self.t_int += 1
 
         # Aftermarket exploration TODO: not implemented; Status now would overwrite actual DA data
@@ -182,10 +261,9 @@ class SpotEnv(gym.Env):
                 player = np.random.randint(0, n)
 
                 # TODO: delete to include rl agent
-                if player == n - 1:
-                    break
+                #if player == n - 1:
+                #    break
 
-                # TODO: Double-check this poc
                 calc_prices(self)
 
                 if player != n - 1:
@@ -201,6 +279,7 @@ class SpotEnv(gym.Env):
                 self.df_x_re_cap.loc[self.t_int] = self.df_bidders['x_re_cap'].values
                 self.df_x_re_gen.loc[self.t_int] = self.df_bidders['x_re_gen'].values
                 self.df_x_th_gen.loc[self.t_int] = self.df_bidders['x_th_gen'].values
+                self.df_x_th_start.loc[self.t_int] = self.df_bidders['x_th_start'].values
 
                 self.df_ask_prices.loc[self.t_int] = self.df_bidders['ask_price'].values
                 self.df_bid_prices.loc[self.t_int] = self.df_bidders['bid_price'].values
@@ -227,6 +306,9 @@ class SpotEnv(gym.Env):
                     break
 
                 if player == n - 1:
+                    init_new_round(self)
+                    update_production(self, update_x_th_start=False)
+
                     break
 
                 #TODO: Breakpoint
@@ -242,6 +324,7 @@ class SpotEnv(gym.Env):
         self.df_x_re_cap.to_csv(f'./csv/{self.timestamp}/x_re_cap.csv', sep=';')
         self.df_x_re_gen.to_csv(f'./csv/{self.timestamp}/x_re_gen.csv', sep=';')
         self.df_x_th_gen.to_csv(f'./csv/{self.timestamp}/x_th_gen.csv', sep=';')
+        self.df_x_th_start.to_csv(f'./csv/{self.timestamp}/x_th_start.csv', sep=';')
 
         self.df_ask_prices.to_csv(f'./csv/{self.timestamp}/ask_prices.csv', sep=';')
         self.df_bid_prices.to_csv(f'./csv/{self.timestamp}/bid_prices.csv', sep=';')
@@ -274,14 +357,23 @@ class SpotEnv(gym.Env):
         else:
             reward = self.df_payoffs.at[t_int, f'bidder_{n - 1}'] - self.df_payoffs.at[t_int - 1, f'bidder_{n - 1}']
 
+        #reward = normalize_zero_centered(reward, min_reward, max_reward)
+
+        obs = self.get_obs()
+
+
+
         self._current_step += 1
 
         if self._current_step >= self._max_steps:
             done = True
 
-        obs = self.get_obs()
-
         if self.t_int == self.t_max:
             done = True  # breakpoint to check out graphs
+
+        #print(f"action {action}")
+        #print(f"reward {reward}")
+        #print(f"obs\n{obs}")
+        #print("\n")
 
         return obs, reward, done, truncated, {}
