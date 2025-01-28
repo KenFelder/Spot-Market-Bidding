@@ -4,7 +4,7 @@ def bid_intra_trustful(self, player):
     # remove old bids/asks from order book
     self.df_order_book = self.df_order_book[self.df_order_book["participant"] != player]
 
-    x_th_start = self.df_bidders.at[player, 'x_th_gen']
+    x_th_start = self.df_bidders.at[player, 'x_th_start']
 
     true_costs = self.df_bidders.at[player, 'true_costs']
 
