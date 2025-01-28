@@ -5,10 +5,11 @@ from config import *
 
 
 def max_sw(self, action):
-    prices = np.array([0] + self.df_bidders['true_costs'][1:-1].tolist() + [action[0]])
-    volumes = np.array([0] + self.df_bidders['x_cap'][1:-1].tolist() + [max(action[1], 0)])
+    prices = np.array([max_price] + self.df_bidders['true_costs'][1:-1].tolist() + [action[0]])
+    volumes = np.array([self.df_bidders.at[0, 'x_demand']] + self.df_bidders['x_cap'][1:-1].tolist() + [action[1]])
 
-    demand = min(-self.x_demand[self.t_int], volumes.sum())
+    dem_prices = np.array([prices[i] if volumes[i] < 0 else 0 for i in range(n) ])
+    dem_volumes = np.array([-volumes[i] if volumes[i] < 0 else 0 for i in range(n) ])
 
     x_re_caps = np.array([self.df_bidders.at[i, 'x_re_cap'] if volumes[i] > 0 else 0 for i in range(n)])
     x_th_caps = np.array([self.df_bidders.at[i, 'x_th_cap'] if volumes[i] > 0 else 0 for i in range(n)])
@@ -17,17 +18,16 @@ def max_sw(self, action):
     x_th_gen = cp.Variable(n, nonneg=True)
     x_dem = cp.Variable(n, nonneg=True)
 
-    c_dem = demand * max_price
+    c_dem = cp.sum(cp.multiply(dem_prices, x_dem))
     c_prod = cp.sum(cp.multiply(prices, x_th_gen))
 
     sw = c_dem - c_prod
 
     sw = cp.Problem(cp.Maximize(sw), [
-        demand == cp.sum(x_re_gen) + cp.sum(x_th_gen),
+        cp.sum(x_dem) == cp.sum(x_re_gen) + cp.sum(x_th_gen),
         x_re_gen <= x_re_caps,
         x_th_gen <= x_th_caps,
-        #TODO: needs to be adjusted for RL agent
-        x_dem == np.array([demand, 0, 0, 0, 0, 0]),
+        x_dem <= dem_volumes,
     ])
 
     sw.solve(solver=cp.GUROBI)
@@ -35,9 +35,10 @@ def max_sw(self, action):
     #check if the solution is feasible
     if sw.status != cp.OPTIMAL:
         print('SW not optimal')
-        return
+    else:
+        print(f'SW optimal: {sw.value}')
 
-    marginal_costs = [self.df_bidders['true_costs'][i] if x_th_gen.value[i] > 0 else 0 for i in range(n)]
+    marginal_costs = [prices[i] if x_th_gen.value[i] > 0 else 0 for i in range(n)]
 
     marginal_price = prices[marginal_costs.index(max(marginal_costs))]
 
