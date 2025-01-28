@@ -13,9 +13,11 @@ start_sd_demand = 0.2  # Start point for standard deviation of demand forecast
 
 ### Thermal capacity ###
 true_costs = [0, 5, 12, 16, 18, 11]  # Production costs
+
 x_th_cap = [0, 300, 300, 300, 300, 300]  # Thermal capacity
-ramp_up = [0, 1.5, 1.5, 1.5, 1.5, 1.5]  # Ramp up and down MWh / time step
-ramp_down = [0, 1.5, 1.5, 1.5, 1.5, 1.5]  # Ramp up and down MWh / time step
+x_th_start = [random.uniform(0, x_th_cap[i]) for i in range(6)]  # Start point for thermal capacity
+ramp_up = [0, 2, 2, 2, 2, 2]  # Ramp up and down MWh / time step
+ramp_down = [0, 2, 2, 2, 2, 2]  # Ramp up and down MWh / time step
 
 ## Intraday ##
 start_aggressiveness_bid = [-0.6, 0.4, 0.7, -0.1, -0.1, -0.1]  # Start point for aggressiveness of bids
@@ -38,7 +40,7 @@ bid_step_factor = [1.5 for i in range(6)]  # Rate of convergence
 aftermarket_expl = 200  # Steps of aftermarket exploration
 max_bid_volume = 2000  # Maximum bid volume
 max_ask_volume = 2000  # Maximum ask volume
-max_price = 20  # Maximum price
+max_price = 50  # Maximum price
 min_price = -20  # Minimum price
 
 ############### Game Parameters ################
