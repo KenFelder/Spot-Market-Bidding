@@ -100,6 +100,7 @@ def init_bidders(self):
         'x_th_gen': [0] * n,
         'x_re_cap': [self.x_re_cap[i][0] for i in range(n)],
         'x_th_cap': x_th_cap,
+        'x_th_start': x_th_start,
         'x_prod': [0] * n,
         'x_cap': [self.x_cap[i][0] for i in range(n)],
         'market_position': [0] * n,
