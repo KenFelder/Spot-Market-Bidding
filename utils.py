@@ -18,9 +18,9 @@ def init_new_round(self):
 
     return
 
-def update_production(self):
+def update_production(self, update_x_th_start=True):
     for player in range(n):
-        x_th_start = self.df_bidders.at[player, 'x_th_gen']
+        x_th_start = self.df_bidders.at[player, 'x_th_start']
 
         true_costs = self.df_bidders.at[player, 'true_costs']
 
@@ -55,6 +55,15 @@ def update_production(self):
 
         problem.solve(solver=cp.GUROBI)
 
+        if update_x_th_start:
+            if x_th_gen.value > x_th_start + ramp_up[player]:
+                x_th_start = x_th_start + ramp_up[player]
+            elif x_th_gen.value < x_th_start - ramp_down[player]:
+                x_th_start = x_th_start - ramp_down[player]
+            else:
+                x_th_start = x_th_gen.value
+
+        self.df_bidders.at[player, 'x_th_start'] = x_th_start
         self.df_bidders.at[player, 'x_re_gen'] = x_re_gen.value
         self.df_bidders.at[player, 'x_th_gen'] = x_th_gen.value
         self.df_bidders.at[player, 'x_imb'] = x_imb.value
