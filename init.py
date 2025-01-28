@@ -209,6 +209,7 @@ def init_logs(self):
     self.df_x_re_cap = pd.DataFrame(columns=[f'bidder_{i}' for i in range(n)])
     self.df_x_re_gen = pd.DataFrame(columns=[f'bidder_{i}' for i in range(n)])
     self.df_x_th_gen = pd.DataFrame(columns=[f'bidder_{i}' for i in range(n)])
+    self.df_x_th_start = pd.DataFrame(columns=[f'bidder_{i}' for i in range(n)])
 
     self.df_ask_prices = pd.DataFrame(columns=[f'bidder_{i}' for i in range(n)])
     self.df_bid_prices = pd.DataFrame(columns=[f'bidder_{i}' for i in range(n)])
