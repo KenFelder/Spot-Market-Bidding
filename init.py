@@ -134,6 +134,7 @@ def init_bidders(self):
         'x_th_gen': 'float64',
         'x_re_cap': 'float64',
         'x_th_cap': 'float64',
+        'x_th_start': 'float64',
         'x_prod': 'float64',
         'x_cap': 'float64',
         'market_position': 'float64',
