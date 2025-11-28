@@ -36,7 +36,8 @@ def max_sw(self, action):
     if sw.status != cp.OPTIMAL:
         print('SW not optimal')
     else:
-        print(f'SW optimal: {sw.value}')
+        #print(f'SW optimal: {sw.value}')
+        pass
 
     marginal_costs = [prices[i] if x_th_gen.value[i] > 0 else 0 for i in range(n)]
 
@@ -134,11 +135,11 @@ def optimize_alloc(p_bid, bids, Q, cap):
 
     return allocs, marginal_price, payments, social_welfare
 
-def aftermarket_evaluation(bids, Q, cap, t, bidder):
+def aftermarket_evaluation(self, bids, Q, cap, t, bidder):
     payoffs_each_action = []
     for _ in range(bidder.aftermarket_exploration):
         # action = (price, quantity), random as placeholder
-        action_tmp = (np.random.randint(0, 30), np.random.randint(0, cap[-1]))
+        action_tmp = (self.rng.uniform(0, 30), self.rng.uniform(0, cap[-1]))
         tmp_bids = bids.copy()
         x_tmp, marginal_price_tmp, payments_tmp, sw = blind_auction(tmp_bids, Q, cap[:-1] + [action_tmp[1]])
         payoff_tmp = payments_tmp[-1] - bidder.costs * x_tmp[-1]

@@ -6,7 +6,7 @@ from config import *
 def init_forecasts(self):
     modified_start_sd_re_gen = [start_sd_re_gen[i] if re_gen_mean[i] > 0 else 0 for i in range(n)]
     sd_re_gen = [np.linspace(modified_start_sd_re_gen[i], 0, t_max, dtype=np.float64) for i in range(n)]
-    self.x_re_cap = [[np.random.normal(
+    self.x_re_cap = [[self.rng.normal(
         loc=re_gen_mean[i],
         scale=sd_re_gen[i][t] * re_gen_mean[i]
     ) for t in range(t_max)] for i in range(n)]
@@ -15,7 +15,7 @@ def init_forecasts(self):
     self.x_cap = [[x_th_cap[i] + self.x_re_cap[i][t] for i in range(n)] for t in range(t_max)]
     ## Demand
     sd_demand = np.linspace(start_sd_demand, 0, t_max, dtype=np.float64)
-    self.x_demand = [np.random.normal(loc=demand_mean, scale=sd_demand[t] * (-demand_mean)) for t in range(t_max)]
+    self.x_demand = [self.rng.normal(loc=demand_mean, scale=sd_demand[t] * (-demand_mean)) for t in range(t_max)]
     self.x_demand = [min(value, 0) for value in self.x_demand]
 
     return self.x_re_cap, self.x_cap, self.x_demand
@@ -194,7 +194,50 @@ def init_config_logs(self):
     self.df_config = pd.DataFrame(data_config)
     return self.df_config
 
+def init_df_rl(self):
+    data_rl = {
+        'x_imb': [0] * n,
+        'x_re_gen': [0] * n,
+        'x_th_gen': [0] * n,
+        'x_th_start': x_th_start,
+        'x_demand': [0] * n,
+        'x_da': [0] * n,
+        'x_bought': [0] * n,
+        'x_sold': [0] * n,
+        'x_re_cap': [self.x_re_cap[i][0] for i in range(n)],
+        'x_cap': [self.x_cap[i][0] for i in range(n)],
+        'true_costs': true_costs,
+        'x_imb': [0] * n,
+        'x_prod': [0] * n,
+        'marginal_costs': [0] * n,
+        'production_costs': [0] * n,
+        'penalty_imbalance': [0] * n,
+        'payoff': [0] * n,
+        'market_position': [0] * n,
+    }
+    self.df_rl = pd.DataFrame(data_rl)
+    self.df_rl = self.df_rl.astype({
+        'market_id': 'float64',
+        'x_imb': 'float64',
+        'x_re_gen': 'float64',
+        'x_th_gen': 'float64',
+        'x_th_start': 'float64',
+        'x_demand': 'float64',
+        'x_da': 'float64',
+        'x_bought': 'float64',
+        'x_sold': 'float64',
+        'x_re_cap': 'float64',
+        'x_cap': 'float64',
+        'true_costs': 'float64',
 
+        'x_prod': 'float64',
+        'marginal_costs': 'float64',
+        'production_costs': 'float64',
+        'penalty_imbalance': 'float64',
+        'payoff': 'float64',
+        'market_position': 'float64',
+    })
+    return self.df_rl
 
 def init_logs(self):
     self.df_config = init_config_logs(self)

@@ -3,6 +3,13 @@ import cvxpy as cp
 from config import *
 
 
+def normalize(val, min_val, max_val):
+    return (val - min_val) / (max_val - min_val)
+
+def normalize_zero_centered(val, min_val, max_val):
+    max_abs = max(abs(min_val), abs(max_val))  # Symmetric scaling
+    return val / max_abs
+
 def init_new_round(self):
     # Update imbalance penalty
     min_cost = np.min([c for c in true_costs if c > 0])

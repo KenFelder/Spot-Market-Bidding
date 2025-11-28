@@ -81,7 +81,7 @@ def bid_intra_trustful(self, player):
 
     problem = cp.Problem(objective, constraints + ob_buy_constraint + ob_sell_constraint)
 
-    problem.solve(solver=cp.GUROBI)
+    problem.solve(solver=cp.GUROBI, verbose=True)
 
     if bid_flag.value == 0:
         new_post = [bid_flag.value, ask_price, x_sell_int.value, player, self.t_int]

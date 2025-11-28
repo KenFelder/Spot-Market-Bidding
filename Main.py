@@ -1,130 +1,88 @@
+import multiprocessing
 from spot_env import SpotEnv
 import numpy as np
 from gymnasium.wrappers import FlattenObservation
-from stable_baselines3 import SAC, TD3, DDPG, PPO
-from stable_baselines3.common.noise import NormalActionNoise, OrnsteinUhlenbeckActionNoise
-from stable_baselines3.common.env_util import make_vec_env
-from sb3_logging import TensorboardCallback
+from stable_baselines3 import SAC
+from stable_baselines3.common.monitor import Monitor
+from stable_baselines3.common.vec_env import VecNormalize, DummyVecEnv
+from stable_baselines3.common.callbacks import EvalCallback, CallbackList
 
+def make_env():
+    env = SpotEnv(seed=True)
+    env = FlattenObservation(env)
+    env = Monitor(env)
 
-def TD3_game(env, callback):
+    eval_env = SpotEnv(seed=False)
+    eval_env = FlattenObservation(eval_env)
+    eval_env = Monitor(eval_env)
+
+    return env, eval_env
+
+def SAC_train(learning_rate):
     timestamp = np.datetime64('now').astype(str).replace(":", "-")
-    log_dir = f"./logs/td3_spot_tensorboard/{timestamp}/"
-    model_dir = f"./models/td3_spot_model/{timestamp}/"
+    log_dir = f"./logs/"
+    model_dir = f"./models/{timestamp}/SAC_LR_{learning_rate}"
 
-    # The noise objects for TD3
-    n_actions = env.action_space.shape[-1]
-    action_noise = NormalActionNoise(mean=np.zeros(n_actions), sigma=0.1 * np.ones(n_actions))
+    env, eval_env = make_env()
 
-    model = TD3("MultiInputPolicy", env, action_noise=action_noise, verbose=1,
-                tensorboard_log=log_dir)
-    model.learn(total_timesteps=10000, log_interval=10, progress_bar=True, callback=callback)
-    model.save(model_dir)
-    vec_env = model.get_env()
+    env = DummyVecEnv([lambda: env])
+    env = VecNormalize(env, training=True, norm_obs=True, norm_reward=True)
 
-    #del model  # remove to demonstrate saving and loading
+    eval_env = DummyVecEnv([lambda: eval_env])
+    eval_env = VecNormalize(eval_env, training=False, norm_obs=True, norm_reward=False)
 
-    #model = TD3.load(f"./model_dir/")
+    eval_callback = EvalCallback(
+        eval_env,
+        best_model_save_path=model_dir,
+        #log_path=f"{log_dir}/eval/",
+        eval_freq=200, # Timesteps
+        n_eval_episodes=5,
+        deterministic=True,
+        render=False
+    )
 
-    obs = vec_env.reset()
-    while True:
-        action, _states = model.predict(obs)
-        obs, rewards, dones, info = vec_env.step(action)
+    callbacks = CallbackList([eval_callback])
 
-        if dones.any():  # If any of the environments are done
-            print(f'Reward: {rewards}')
-            obs = vec_env.reset()  # Reset environment after it is done
-            break  # You can break the loop or continue based on your use case
+    model = SAC(
+        "MlpPolicy",
+        env,
+        learning_rate=learning_rate,
+        verbose=1,
+        tensorboard_log=log_dir,
+        #batch_size=256,
+        buffer_size=100000,
+    )
 
+    model.learn(
+        total_timesteps=20000000000000000000,
+        log_interval=2, # Episodes
+        progress_bar=True,
+        tb_log_name=f'SAC_LR_{learning_rate}',
+        callback=callbacks
+    )
 
-def DDPG_game(env, callback):
-    timestamp = np.datetime64('now').astype(str).replace(":", "-")
-    log_dir = f"./logs/ddpg_spot_tensorboard/{timestamp}/"
-    model_dir = f"./models/ddpg_spot_model/{timestamp}/"
+def game(model):
+    env = DummyVecEnv([make_env])
+    env = VecNormalize(env, norm_obs=True, norm_reward=True)
 
-    # The noise objects for DDPG
-    n_actions = env.action_space.shape[-1]
-    action_noise = NormalActionNoise(mean=np.zeros(n_actions), sigma=0.1 * np.ones(n_actions))
+    obs = env.reset()
 
-    model = DDPG("MultiInputPolicy", env, action_noise=action_noise, verbose=1, tensorboard_log=log_dir)
-    model.learn(total_timesteps=10000, log_interval=10, progress_bar=True, callback=callback)
-    model.save(model_dir)
-    vec_env = model.get_env()
-
-    #del model  # remove to demonstrate saving and loading
-
-    #model = DDPG.load(model_dir)
-
-    obs = vec_env.reset()
-    while True:
-        action, _states = model.predict(obs)
-        obs, rewards, dones, info = vec_env.step(action)
-
-        if dones.any():  # If any of the environments are done
-            print(f'Reward: {rewards}')
-            obs = vec_env.reset()  # Reset environment after it is done
-            break  # You can break the loop or continue based on your use case
-
-
-def PPO_game(env, callback):
-    timestamp = np.datetime64('now').astype(str).replace(":", "-")
-    log_dir = f"./logs/ppo_spot_tensorboard/{timestamp}/"
-    model_dir = f"./models/ppo_spot_model/{timestamp}/"
-
-    # Parallel environments
-    vec_env = make_vec_env(lambda: SpotEnv(), n_envs=1)
-
-    # Train the PPO model
-    print(timestamp)
-    model = PPO("MultiInputPolicy", vec_env, verbose=1, tensorboard_log=log_dir, ent_coef=0.1)
-    model.learn(total_timesteps=100, log_interval=10, progress_bar=True, callback=TensorboardCallback())
-    model.save(model_dir)
-    #del model  # Remove model to demonstrate loading
-
-    # Load the trained model for inference
-
-    #model = PPO.load(f"{model_dir}/")
-
-    obs = vec_env.reset()
-    while True:
-        action, _states = model.predict(obs)
-        obs, rewards, dones, info = vec_env.step(action)
-
-        # 'dones' is a list when using vec_env, so we should check for any True
-        if dones.all():  # If any of the environments are done
-            print(f'Reward: {rewards}')
-            obs = vec_env.reset()  # Reset environment after it is done
-            break  # You can break the loop or continue based on your use case
-
-
-def SAC_game(env, callback):
-    timestamp = np.datetime64('now').astype(str).replace(":", "-")
-    log_dir = f"./logs/sac_spot_tensorboard/{timestamp}/"
-    model_dir = f"./models/sac_spot_model/{timestamp}/"
-
-    model = SAC("MultiInputPolicy", env, verbose=1, tensorboard_log=log_dir)
-    #model.learn(total_timesteps=10000, log_interval=4, progress_bar=True, callback=callback)
-    model.learn(total_timesteps=10000, log_interval=4, progress_bar=True)
-    model.save(model_dir)
-
-    #del model  # remove to demonstrate saving and loading
-
-    #model = SAC.load(f"{model_dir}/")
-
-    obs, info = env.reset()
     while True:
         action, _states = model.predict(obs, deterministic=True)
-        obs, reward, done, truncated, info = env.step(action)
+        obs, reward, done, truncated = env.step(action)
         if done or truncated:
             obs, info = env.reset()
 
+            break
+
 
 if __name__ == '__main__':
-    env = SpotEnv()
-    callback = TensorboardCallback()
-    #env = FlattenObservation(env)
-    #PPO_game(env, callback)  # TODO: Not learning, maybe missing state? Bad selection of obs?
-    #                                Too large obs spaces? Flatten obs? Imbalance penalty too harsh?
-    SAC_game(env, callback)  # TODO: Same as PPO
-    #TD3_game(env, callback)  # TODO: Same as SAC
-    #DDPG_game(env, callback)  # TODO: Test
+    learning_rates = [0.01]#0.0001, 0.0003, 0.001, 0.003]
+    trainings = []
+
+    for learning_rate in learning_rates:
+        training = multiprocessing.Process(target=SAC_train, args=(learning_rate,))
+        training.start()
+        trainings.append(training)
+    for training in trainings:
+        training.join()
