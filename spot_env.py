@@ -11,15 +11,22 @@ from config import *
 
 
 class SpotEnv(gym.Env):
-    def __init__(self, seed=False):
+    def __init__(self, seed=False, log_frequency=1):
+        """
+        Spot Market Bidding Environment
+        
+        Args:
+            seed: If True, use fixed seed for reproducibility
+            log_frequency: How often to write detailed CSV logs (every N episodes)
+                          Set to 1 to log every episode, 10 to log every 10th, etc.
+        """
         if seed:
             self.rng = np.random.default_rng(seed=42)
-            #print("Using fixed seed for reproducibility.")
         else:
             self.rng = np.random.default_rng()
-            #print("Caution: Random seed!")
 
         self.run = 0
+        self.log_frequency = log_frequency
 
         #### Steps
         self._current_step = 0
@@ -99,7 +106,6 @@ class SpotEnv(gym.Env):
         # log
         self.run += 1
         self.timestamp = datetime.now().strftime('%Y%m%d_%H-%M-%S')
-        os.makedirs(f'./csv/{self.timestamp}/', exist_ok=True)
 
         #### Steps
         self._current_step = 0
@@ -126,24 +132,18 @@ class SpotEnv(gym.Env):
         return obs, {}
 
     def get_obs(self):
-        x_imb = normalize_zero_centered(self.df_bidders.loc[n - 1, 'x_imb'], min_x_imb, max_x_imb)
-        x_re_gen = normalize(self.df_bidders.loc[n - 1, 'x_re_gen'], min_x_re_gen, max_x_re_gen)
-        x_th_gen = normalize(self.df_bidders.loc[n - 1, 'x_th_gen'], min_x_th_gen, max_x_th_gen)
-        x_da = normalize(self.df_bidders.loc[n - 1, 'x_da'], min_x_da, max_x_da)
-        x_bought = normalize(self.df_bidders.loc[n - 1, 'x_bought'], min_x_bought, max_x_bought)
-        x_sold = normalize(self.df_bidders.loc[n - 1, 'x_sold'], min_x_sold, max_x_sold)
-        revenue = normalize(self.df_bidders.loc[n - 1, 'revenue'], min_revenue, max_revenue)
-        expenses = normalize(self.df_bidders.loc[n - 1, 'expenses'], min_expenses, max_expenses)
-
-        x_imb = self.df_bidders.loc[n - 1, 'x_imb']
-        x_re_gen = self.df_bidders.loc[n - 1, 'x_re_gen']
-        x_th_gen = self.df_bidders.loc[n - 1, 'x_th_gen']
-        x_th_start = self.df_bidders.loc[n - 1, 'x_th_start']
-        x_da = self.df_bidders.loc[n - 1, 'x_da']
-        x_bought = self.df_bidders.loc[n - 1, 'x_bought']
-        x_sold = self.df_bidders.loc[n - 1, 'x_sold']
-        revenue = self.df_bidders.loc[n - 1, 'revenue']
-        expenses = self.df_bidders.loc[n - 1, 'expenses']
+        """Get observation - VecNormalize will handle normalization"""
+        rl_agent_idx = n - 1
+        
+        # Get raw values directly (no manual normalization)
+        x_imb = self.df_bidders.loc[rl_agent_idx, 'x_imb']
+        x_re_gen = self.df_bidders.loc[rl_agent_idx, 'x_re_gen']
+        x_th_gen = self.df_bidders.loc[rl_agent_idx, 'x_th_gen']
+        x_th_start = self.df_bidders.loc[rl_agent_idx, 'x_th_start']
+        x_da = self.df_bidders.loc[rl_agent_idx, 'x_da']
+        x_bought = self.df_bidders.loc[rl_agent_idx, 'x_bought']
+        x_sold = self.df_bidders.loc[rl_agent_idx, 'x_sold']
+        revenue = self.df_bidders.loc[rl_agent_idx, 'revenue']
 
         if self._current_step == 0:
             obs = {
@@ -156,81 +156,57 @@ class SpotEnv(gym.Env):
                 'x_bought': np.array([x_bought]),
                 'x_sold': np.array([x_sold]),
                 'revenue': np.array([revenue]),
-                'expenses': np.array([expenses]),
-                'Bid 0 (price)': np.array([0]),
-                'Bid 1 (price)': np.array([0]),
-                'Bid 2 (price)': np.array([0]),
-                'Bid 3 (price)': np.array([0]),
-                'Bid 4 (price)': np.array([0]),
-                'Bid 5 (price)': np.array([0]),
-                'Ask 0 (price)': np.array([0]),
-                'Ask 1 (price)': np.array([0]),
-                'Ask 2 (price)': np.array([0]),
-                'Ask 3 (price)': np.array([0]),
-                'Ask 4 (price)': np.array([0]),
-                'Ask 5 (price)': np.array([0]),
-
-                'Bid 0 (volume)': np.array([0]),
-                'Bid 1 (volume)': np.array([0]),
-                'Bid 2 (volume)': np.array([0]),
-                'Bid 3 (volume)': np.array([0]),
-                'Bid 4 (volume)': np.array([0]),
-                'Bid 5 (volume)': np.array([0]),
-                'Ask 0 (volume)': np.array([0]),
-                'Ask 1 (volume)': np.array([0]),
-                'Ask 2 (volume)': np.array([0]),
-                'Ask 3 (volume)': np.array([0]),
-                'Ask 4 (volume)': np.array([0]),
-                'Ask 5 (volume)': np.array([0]),
+                'Bid 0 (price)': np.array([min_price]),
+                'Bid 1 (price)': np.array([min_price]),
+                'Bid 2 (price)': np.array([min_price]),
+                'Bid 3 (price)': np.array([min_price]),
+                'Bid 4 (price)': np.array([min_price]),
+                'Bid 5 (price)': np.array([min_price]),
+                'Ask 0 (price)': np.array([max_price]),
+                'Ask 1 (price)': np.array([max_price]),
+                'Ask 2 (price)': np.array([max_price]),
+                'Ask 3 (price)': np.array([max_price]),
+                'Ask 4 (price)': np.array([max_price]),
+                'Ask 5 (price)': np.array([max_price]),
+                'Bid 0 (volume)': np.array([0.]),
+                'Bid 1 (volume)': np.array([0.]),
+                'Bid 2 (volume)': np.array([0.]),
+                'Bid 3 (volume)': np.array([0.]),
+                'Bid 4 (volume)': np.array([0.]),
+                'Bid 5 (volume)': np.array([0.]),
+                'Ask 0 (volume)': np.array([0.]),
+                'Ask 1 (volume)': np.array([0.]),
+                'Ask 2 (volume)': np.array([0.]),
+                'Ask 3 (volume)': np.array([0.]),
+                'Ask 4 (volume)': np.array([0.]),
+                'Ask 5 (volume)': np.array([0.]),
                 'steps left': np.array([self.t_int]),
             }
-
         else:
-            len_bids = len(self.df_order_book[self.df_order_book['bid_flag'] == 1])
-            len_asks = len(self.df_order_book[self.df_order_book['bid_flag'] == 0])
-            bid_prices = []
-            bid_volumes = []
-            ask_prices = []
-            ask_volumes = []
-            if len_bids != 0:
-                for bid in range(len_bids):
-                    bid_price = normalize_zero_centered(self.df_order_book[self.df_order_book['bid_flag'] == 1]['price'].iloc[bid], min_price, max_price)
-                    bid_price = self.df_order_book[self.df_order_book['bid_flag'] == 1]['price'].iloc[bid]
-                    bid_prices.append(bid_price)
+            bid_prices = self.df_order_book[self.df_order_book["bid_flag"] == 1]["price"]
+            ask_prices = self.df_order_book[self.df_order_book["bid_flag"] == 0]["price"]
+            bid_volumes = self.df_order_book[self.df_order_book["bid_flag"] == 1]["volume"]
+            ask_volumes = self.df_order_book[self.df_order_book["bid_flag"] == 0]["volume"]
 
-                    bid_volume = normalize_zero_centered(self.df_order_book[self.df_order_book['bid_flag'] == 1]['volume'].iloc[bid], 0, max_bid_volume)
-                    bid_volume = self.df_order_book[self.df_order_book['bid_flag'] == 1]['volume'].iloc[bid]
-                    bid_volumes.append(bid_volume)
-                for bid in range(n - len_bids):
-                    bid_prices.append(0)
-                    bid_volumes.append(0)
+            len_bids = len(bid_prices)
+            len_asks = len(ask_prices)
+
+            if len_bids < 6:
+                bid_prices = list(bid_prices) + [min_price] * (6 - len_bids)
+                bid_volumes = list(bid_volumes) + [0.] * (6 - len_bids)
             else:
-                for bid in range(n):
-                    bid_prices.append(0)
-                    bid_volumes.append(0)
-            if len_asks != 0:
-                for ask in range(len_asks):
-                    ask_price = normalize_zero_centered(self.df_order_book[self.df_order_book['bid_flag'] == 0]['price'].iloc[ask], min_price, max_price)
-                    ask_price = self.df_order_book[self.df_order_book['bid_flag'] == 0]['price'].iloc[ask]
-                    ask_prices.append(ask_price)
+                bid_prices = list(bid_prices)[:6]
+                bid_volumes = list(bid_volumes)[:6]
 
-                    ask_volume = normalize_zero_centered(self.df_order_book[self.df_order_book['bid_flag'] == 0]['volume'].iloc[ask], 0, max_ask_volume)
-                    ask_volume = self.df_order_book[self.df_order_book['bid_flag'] == 0]['volume'].iloc[ask]
-                    ask_volumes.append(ask_volume)
-                ask_prices.reverse()
-                ask_volumes.reverse()
-                for ask in range(n - len_asks):
-                    ask_prices.append(0)
-                    ask_volumes.append(0)
+            if len_asks < 6:
+                ask_prices = list(ask_prices) + [max_price] * (6 - len_asks)
+                ask_volumes = list(ask_volumes) + [0.] * (6 - len_asks)
             else:
-                for ask in range(n):
-                    ask_prices.append(0)
-                    ask_volumes.append(0)
-
-
+                ask_prices = list(ask_prices)[:6]
+                ask_volumes = list(ask_volumes)[:6]
 
             obs = {
-                'market_id': np.array([1]),  # '0' for day-ahead, '1' for intraday
+                'market_id': np.array([1]),
                 'x_imb': np.array([x_imb]),
                 'x_re_gen': np.array([x_re_gen]),
                 'x_th_gen': np.array([x_th_gen]),
@@ -239,7 +215,6 @@ class SpotEnv(gym.Env):
                 'x_bought': np.array([x_bought]),
                 'x_sold': np.array([x_sold]),
                 'revenue': np.array([revenue]),
-                'expenses': np.array([expenses]),
                 'Bid 0 (price)': np.array(bid_prices[0]),
                 'Bid 1 (price)': np.array(bid_prices[1]),
                 'Bid 2 (price)': np.array(bid_prices[2]),
@@ -252,7 +227,6 @@ class SpotEnv(gym.Env):
                 'Ask 3 (price)': np.array(ask_prices[3]),
                 'Ask 4 (price)': np.array(ask_prices[4]),
                 'Ask 5 (price)': np.array(ask_prices[5]),
-
                 'Bid 0 (volume)': np.array(bid_volumes[0]),
                 'Bid 1 (volume)': np.array(bid_volumes[1]),
                 'Bid 2 (volume)': np.array(bid_volumes[2]),
@@ -266,8 +240,6 @@ class SpotEnv(gym.Env):
                 'Ask 4 (volume)': np.array(ask_volumes[4]),
                 'Ask 5 (volume)': np.array(ask_volumes[5]),
                 'steps left': np.array([self.t_int]),
-                #'len_bids': np.array([len_bids]),
-                #'len_asks': np.array([len_asks]),
             }
 
         return obs
@@ -312,6 +284,7 @@ class SpotEnv(gym.Env):
 
                 update_books(self, self.player, new_post)
 
+                # Update in-memory dataframes (don't write to CSV yet!)
                 self.df_x_demand.loc[self.t_int] = self.df_bidders['x_demand'].values
                 self.df_x_bought.loc[self.t_int] = self.df_bidders['x_bought'].values
                 self.df_x_sold.loc[self.t_int] = self.df_bidders['x_sold'].values
@@ -345,7 +318,6 @@ class SpotEnv(gym.Env):
                     self.player = self.rng.integers(0, n)
                 else:
                     self.player = self.rng.integers(0, n - 1)
-                #print(f"Player {self.player} is bidding.")
 
                 init_new_round(self)
                 update_production(self, update_x_th_start=False)
@@ -353,56 +325,30 @@ class SpotEnv(gym.Env):
                 if self.player == n - 1:
                     break
 
-        self.df_game_data.to_csv(f'./csv/{self.timestamp}/game_data.csv', sep=';')
-        self.df_bid_logs.to_csv(f'./csv/{self.timestamp}/bid_logs.csv', sep=';')
-
-        self.df_x_demand.to_csv(f'./csv/{self.timestamp}/x_demand.csv', sep=';')
-        self.df_x_bought.to_csv(f'./csv/{self.timestamp}/x_bought.csv', sep=';')
-        self.df_x_sold.to_csv(f'./csv/{self.timestamp}/x_sold.csv', sep=';')
-        self.df_x_re_cap.to_csv(f'./csv/{self.timestamp}/x_re_cap.csv', sep=';')
-        self.df_x_re_gen.to_csv(f'./csv/{self.timestamp}/x_re_gen.csv', sep=';')
-        self.df_x_th_gen.to_csv(f'./csv/{self.timestamp}/x_th_gen.csv', sep=';')
-        self.df_x_th_start.to_csv(f'./csv/{self.timestamp}/x_th_start.csv', sep=';')
-
-        self.df_ask_prices.to_csv(f'./csv/{self.timestamp}/ask_prices.csv', sep=';')
-        self.df_bid_prices.to_csv(f'./csv/{self.timestamp}/bid_prices.csv', sep=';')
-        self.df_bid_agg.to_csv(f'./csv/{self.timestamp}/bid_agg.csv', sep=';')
-        self.df_ask_agg.to_csv(f'./csv/{self.timestamp}/ask_agg.csv', sep=';')
-        self.df_target_price_param.to_csv(f'./csv/{self.timestamp}/target_price_param.csv', sep=';')
-        self.df_limit_buy.to_csv(f'./csv/{self.timestamp}/limit_buy.csv', sep=';')
-        self.df_limit_sell.to_csv(f'./csv/{self.timestamp}/limit_sell.csv', sep=';')
-        self.df_target_asks.to_csv(f'./csv/{self.timestamp}/target_asks.csv', sep=';')
-        self.df_target_bids.to_csv(f'./csv/{self.timestamp}/target_bids.csv', sep=';')
-
-        self.df_market_positions.to_csv(f'./csv/{self.timestamp}/market_positions.csv', sep=';')
-        self.df_payoffs.to_csv(f'./csv/{self.timestamp}/payoffs.csv', sep=';')
-        self.df_revenues.to_csv(f'./csv/{self.timestamp}/revenues.csv', sep=';')
-        self.df_expenses.to_csv(f'./csv/{self.timestamp}/expenses.csv', sep=';')
-        self.df_prod_costs.to_csv(f'./csv/{self.timestamp}/prod_costs.csv', sep=';')
-        self.df_penalty_imbalances.to_csv(f'./csv/{self.timestamp}/penalty_imbalances.csv', sep=';')
-        self.df_imbalances.to_csv(f'./csv/{self.timestamp}/imbalances.csv', sep=';')
-
-        self.df_bidders.to_csv(f'./csv/{self.timestamp}/bidders.csv', sep=';')
-
-        self.df_config.to_csv(f'./csv/{self.timestamp}/config.csv', sep=';')
-
+        # Calculate reward
         new_payoff = self.df_bidders.at[n - 1, 'payoff']
-
         reward = new_payoff - self.old_payoff
-
         self.old_payoff = new_payoff
 
+        # new rew function
+        x_imb = self.df_bidders.at[n - 1, 'x_imb']
+        imbalance_penalty_factor = self.df_game_data.iloc[-1]['imbalance_penalty_factor']
+        bid_price = action[0] if action[1] < 0 else 0
+        ask_price = action[0] if action[1] > 0 else 0
+        bid_volume = -action[1] if action[1] < 0 else 0
+        ask_volume = action[1] if action[1] > 0 else 0
+        #
+
+        reward = -imbalance_penalty_factor * abs(x_imb)
+
+        # Get observation
         obs = self.get_obs()
 
+        # Update logging dataframes (in memory only)
         self.df_obs = pd.concat([self.df_obs, pd.DataFrame(obs)], ignore_index=True)
         self.df_actions.loc[self.t_int, 'price'] = action[0]
         self.df_actions.loc[self.t_int, 'volume'] = action[1]
         self.df_rewards.loc[self.t_int, 'reward'] = reward
-
-        self.df_obs.to_csv(f'./csv/{self.timestamp}/obs.csv', sep=';')
-        self.df_actions.to_csv(f'./csv/{self.timestamp}/actions.csv', sep=';')
-        self.df_rewards.to_csv(f'./csv/{self.timestamp}/rewards.csv', sep=';')
-
 
         self._current_step += 1
 
@@ -410,6 +356,52 @@ class SpotEnv(gym.Env):
             done = True
 
         if self.t_int == self.t_max:
-            done = True  # breakpoint to check out graphs
+            done = True
+
+        # ONLY write CSVs when episode is done AND it's time to log
+        if (done or truncated) and (self.run % self.log_frequency == 0):
+            self._write_all_csvs()
 
         return obs, reward, done, truncated, {}
+    
+    def _write_all_csvs(self):
+        """Write all CSV logs at episode end - called only when needed"""
+        csv_dir = f'./csv/{self.timestamp}/'
+        os.makedirs(csv_dir, exist_ok=True)
+        
+        # Write all CSV files once
+        self.df_game_data.to_csv(f'{csv_dir}/game_data.csv', sep=';')
+        self.df_bid_logs.to_csv(f'{csv_dir}/bid_logs.csv', sep=';')
+
+        self.df_x_demand.to_csv(f'{csv_dir}/x_demand.csv', sep=';')
+        self.df_x_bought.to_csv(f'{csv_dir}/x_bought.csv', sep=';')
+        self.df_x_sold.to_csv(f'{csv_dir}/x_sold.csv', sep=';')
+        self.df_x_re_cap.to_csv(f'{csv_dir}/x_re_cap.csv', sep=';')
+        self.df_x_re_gen.to_csv(f'{csv_dir}/x_re_gen.csv', sep=';')
+        self.df_x_th_gen.to_csv(f'{csv_dir}/x_th_gen.csv', sep=';')
+        self.df_x_th_start.to_csv(f'{csv_dir}/x_th_start.csv', sep=';')
+
+        self.df_ask_prices.to_csv(f'{csv_dir}/ask_prices.csv', sep=';')
+        self.df_bid_prices.to_csv(f'{csv_dir}/bid_prices.csv', sep=';')
+        self.df_bid_agg.to_csv(f'{csv_dir}/bid_agg.csv', sep=';')
+        self.df_ask_agg.to_csv(f'{csv_dir}/ask_agg.csv', sep=';')
+        self.df_target_price_param.to_csv(f'{csv_dir}/target_price_param.csv', sep=';')
+        self.df_limit_buy.to_csv(f'{csv_dir}/limit_buy.csv', sep=';')
+        self.df_limit_sell.to_csv(f'{csv_dir}/limit_sell.csv', sep=';')
+        self.df_target_asks.to_csv(f'{csv_dir}/target_asks.csv', sep=';')
+        self.df_target_bids.to_csv(f'{csv_dir}/target_bids.csv', sep=';')
+
+        self.df_market_positions.to_csv(f'{csv_dir}/market_positions.csv', sep=';')
+        self.df_payoffs.to_csv(f'{csv_dir}/payoffs.csv', sep=';')
+        self.df_revenues.to_csv(f'{csv_dir}/revenues.csv', sep=';')
+        self.df_expenses.to_csv(f'{csv_dir}/expenses.csv', sep=';')
+        self.df_prod_costs.to_csv(f'{csv_dir}/prod_costs.csv', sep=';')
+        self.df_penalty_imbalances.to_csv(f'{csv_dir}/penalty_imbalances.csv', sep=';')
+        self.df_imbalances.to_csv(f'{csv_dir}/imbalances.csv', sep=';')
+
+        self.df_bidders.to_csv(f'{csv_dir}/bidders.csv', sep=';')
+        self.df_config.to_csv(f'{csv_dir}/config.csv', sep=';')
+
+        self.df_obs.to_csv(f'{csv_dir}/obs.csv', sep=';')
+        self.df_actions.to_csv(f'{csv_dir}/actions.csv', sep=';')
+        self.df_rewards.to_csv(f'{csv_dir}/rewards.csv', sep=';')

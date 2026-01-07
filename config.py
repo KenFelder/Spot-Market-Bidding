@@ -11,12 +11,10 @@ rng_conf = np.random.default_rng(seed=42)
 
 ### Forecasting ###
 re_gen_mean = [0, 400, 400, 400, 400, 400]  # Actual renewable generation (not forecasted)
-#start_sd_re_gen = [0, 0.4, 0.1, 0.7, 0.05, 0.2]  # Start point for standard deviation of renewable generation forecast
-start_sd_re_gen = [0, 0, 0, 0, 0, 0]  # Start point for standard deviation of renewable generation forecast
+start_sd_re_gen = [0, 0.4, 0.1, 0.7, 0.05, 0.2]  # Start point for standard deviation of renewable generation forecast
 
 demand_mean = -2500  # Actual demand (not forecasted)
-#start_sd_demand = 0.2  # Start point for standard deviation of demand forecast
-start_sd_demand = 0
+start_sd_demand = 0.2  # Start point for standard deviation of demand forecast
 
 ### Thermal capacity ###
 true_costs = [0, 5, 12, 16, 18, 11]  # Production costs

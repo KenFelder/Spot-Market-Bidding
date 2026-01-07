@@ -30,14 +30,16 @@ def max_sw(self, action):
         x_dem <= dem_volumes,
     ])
 
-    sw.solve(solver=cp.GUROBI)
+    sw.solve(solver=cp.GUROBI, verbose=False)
 
-    #check if the solution is feasible
-    if sw.status != cp.OPTIMAL:
-        print('SW not optimal')
-    else:
-        #print(f'SW optimal: {sw.value}')
-        pass
+    if sw.status not in [cp.OPTIMAL, cp.OPTIMAL_INACCURATE]:
+        print(f'WARNING: SW solver status = {sw.status}')
+        # Use fallback: pro-rata allocation or previous allocation
+        return self._handle_failed_auction(action)
+
+    # Only proceed if we have a valid solution
+    if x_th_gen.value is None or x_re_gen.value is None:
+        raise ValueError("Auction solve failed - variables are None")
 
     marginal_costs = [prices[i] if x_th_gen.value[i] > 0 else 0 for i in range(n)]
 
