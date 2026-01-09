@@ -339,7 +339,7 @@ class SpotEnv(gym.Env):
         ask_volume = action[1] if action[1] > 0 else 0
         #
 
-        reward = -imbalance_penalty_factor * abs(x_imb)
+        #reward = -imbalance_penalty_factor * abs(x_imb)
 
         # Get observation
         obs = self.get_obs()
