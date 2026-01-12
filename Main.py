@@ -42,7 +42,7 @@ def SAC_train(learning_rate):
     model_dir = f"./models/{timestamp}/SAC_LR_{learning_rate}"
 
     try:
-        env, eval_env = make_env(seed=True)
+        env, eval_env = make_env(seed=False)
 
         env = DummyVecEnv([lambda: env])
         env = VecNormalize(env, training=True, norm_obs=True, norm_reward=True)
